@@ -1,0 +1,116 @@
+import sys
+
+class KermitPacketManager:
+    """
+    Implements a safe, compliant packet wrapper based on the 1986/1987 
+    Columbia University Kermit File Transfer Protocol Specification.
+    """
+    MARK = '\x01'  # SOH (Start of Header / Control-A)
+    
+    def __init__(self, max_packet_size: int = 94):
+        # Default standard packet size is small to avoid serial corruption
+        self.max_packet_size = max_packet_size
+
+    @staticmethod
+    def to_ascii_char(value: int) -> str:
+        """Converts an integer to a printable ASCII protocol character using the +32 offset."""
+        return chr((value & 63) + 32)
+
+    @staticmethod
+    def from_ascii_char(char: str) -> int:
+        """Decodes an ASCII protocol character back into an integer using the -32 offset."""
+        return ord(char) - 32
+
+    def calculate_checksum(self, core_packet_string: str) -> str:
+        """
+        Computes the standard 1-byte Kermit checksum: 
+        Sum of ASCII values of all characters in the packet (after MARK), 
+        extracting the low-order 6 bits, plus a 32 offset.
+        """
+        ascii_sum = sum(ord(char) for char in core_packet_string)
+        low_6_bits = ascii_sum & 0x3F
+        return self.to_ascii_char(low_6_bits)
+
+    def encode_packet(self, seq_num: int, packet_type: str, data: str) -> str:
+        """
+        Encodes data into a standard sequenced Kermit packet.
+        Format: MARK + LEN + SEQ + TYPE + DATA + CHECKSUM
+        """
+        if len(data) > (self.max_packet_size - 5):
+            raise ValueError(f"Data payload exceeds maximum safe packet boundaries.")
+
+        # Length includes SEQ, TYPE, DATA payload, and CHECKSUM characters
+        packet_len = len(data) + 3
+        
+        len_char = self.to_ascii_char(packet_len)
+        seq_char = self.to_ascii_char(seq_num)
+        
+        # Build the packet body segment that gets verified by the checksum
+        packet_body = f"{len_char}{seq_char}{packet_type}{data}"
+        checksum_char = self.calculate_checksum(packet_body)
+        
+        return f"{self.MARK}{packet_body}{checksum_char}"
+
+    def decode_packet(self, raw_packet: str) -> dict:
+        """
+        Validates structure, checks data integrity, and parses an incoming packet.
+        """
+        if not raw_packet.startswith(self.MARK):
+            return {"success": False, "error": "Missing Start-of-Header MARK."}
+
+        # Strip the leading SOH MARK for structural analysis
+        packet_body = raw_packet[1:-1]
+        received_checksum = raw_packet[-1]
+
+        if not packet_body:
+            return {"success": False, "error": "Empty packet body."}
+
+        # Calculate expected checksum over the body segment
+        expected_checksum = self.calculate_checksum(packet_body)
+        if received_checksum != expected_checksum:
+            return {"success": False, "error": f"Integrity check failed. Expected {expected_checksum}, got {received_checksum}."}
+
+        # Extract structural fields using protocol offsets
+        packet_len = self.from_ascii_char(packet_body[0])
+        seq_num = self.from_ascii_char(packet_body[1])
+        packet_type = packet_body[2]
+        data_payload = packet_body[3:]
+
+        # Validate that payload alignment matches the header definition
+        if len(packet_body) != packet_len:
+            return {"success": False, "error": "Packet structure mismatch: length header does not align with contents."}
+
+        return {
+            "success": True,
+            "seq": seq_num,
+            "type": packet_type,
+            "data": data_payload
+        }
+
+# --- Verification & Execution Routine ---
+if __name__ == "__main__":
+    manager = KermitPacketManager()
+    
+    # Simulating a file chunk transmission payload
+    sequence = 1
+    type_indicator = 'D'  # 'D' standardly stands for Data Packet
+    sample_payload = "SWAMP_DATA_LOAD"
+    
+    print(f"[*] Packaging original payload: '{sample_payload}' (Sequence: {sequence})")
+    
+    # Generation
+    encoded = manager.encode_packet(seq_num=sequence, packet_type=type_indicator, data=sample_payload)
+    print(f"[+] Output Safe Packet (Hex representation): {encoded.encode('utf-8').hex().upper()}")
+    print(f"[+] Output Safe Packet (ASCII safe view): {repr(encoded)}")
+    
+    # Ingestion & Validation Loop
+    print("\n[*] Simulating network verification layer verification...")
+    parse_result = manager.decode_packet(encoded)
+    
+    if parse_result["success"]:
+        print(f"[+ SUCCESS] Packet safely un-sequenced!")
+        print(f"    - Received Sequence ID: {parse_result['seq']}")
+        print(f"    - Frame Context Type:  {parse_result['type']}")
+        print(f"    - Safe Extracted Data: {parse_result['data']}")
+    else:
+        print(f"[! ERROR] Packet processing aborted: {parse_result['error']}")
