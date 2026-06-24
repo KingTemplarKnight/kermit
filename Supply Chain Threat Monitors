@@ -1,0 +1,29 @@
+import time
+import psutil
+import logging
+from typing import Callable, Any
+
+class AdvancedThreatMonitors:
+    """Provides real-time runtime monitoring for supply chain compromises."""
+    def __init__(self, config: dict):
+        self.mon_cfg = config["monitoring"]
+
+    def run_canary_audit(self) -> bool:
+        """Flags an alert if required security programs are turned off or missing."""
+        live_processes = {p.info['name'] for p in psutil.process_iter(['name']) if p.info['name']}
+        
+        for tool in self.mon_cfg["mandatory_tools"]:
+            if tool not in live_processes:
+                logging.critical(f"SUPPLY-CHAIN EXPLOIT WARNING: Critical monitor '{tool}' was killed!")
+                return False
+        return True
+
+    def profile_dormancy_evasion(self, target_func: Callable[..., Any], *args, **kwargs) -> Any:
+        """Profiles delays to capture malware hiding behind sleep states."""
+        start = time.time()
+        result = target_func(*args, **kwargs)
+        elapsed = time.time() - start
+
+        if elapsed > self.mon_cfg["maximum_allowed_sleep"]:
+            logging.critical(f"SANDBOX ALERT: Delayed execution detected ({elapsed:.2f}s). Evasion suspected.")
+        return result
