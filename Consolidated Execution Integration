@@ -1,0 +1,51 @@
+import os
+import json
+import logging
+from src.logger import setup_structured_logging
+from src.monitors import AdvancedThreatMonitors
+from src.trading import OilTechTradingEngine
+from src.strategy import TradingStrategyEvaluator
+
+def main():
+    # Initialize Grafana JSON logging strings
+    setup_structured_logging()
+    
+    config_path = os.path.join("config", "config.json")
+    with open(config_path, "r") as f:
+        config = json.load(f)
+
+    logging.info("--- Initializing Automated Financial & Supply Chain Suite ---")
+    
+    # Instantiate Defensive Monitors and Financial Systems
+    monitors = AdvancedThreatMonitors(config)
+    trading_core = OilTechTradingEngine(config)
+    strategy = TradingStrategyEvaluator()
+
+    # 1. Run environment verification check
+    if not monitors.run_canary_audit():
+        logging.critical("Security Canary Failure. Trading engine launch suspended.")
+        return
+
+    # 2. Simulate streaming market loop
+    trade_volumes = config["trading"]
+    logging.info("Starting live commodity and equity ingestion feeds...")
+    
+    for tick in range(1, 4):
+        logging.info(f"--- Processing Market Time-Slice Sequence [{tick}] ---")
+        live_prices = trading_core.fetch_live_market_ticks()
+        strategy.record_market_tick(live_prices)
+        
+        for asset in ["OIL_BRENT", "TECH_INDEX"]:
+            decision = strategy.evaluate_moving_average_trend(asset)
+            volume = trade_volumes["order_volume_oil"] if "OIL" in asset else trade_volumes["order_volume_tech"]
+            
+            if decision in ["BUY", "SELL"]:
+                trading_core.execute_market_order(asset, order_type=decision, quantity=volume)
+            else:
+                logging.info(f"[MARKET MONITOR] Asset {asset} currently pricing at ${live_prices[asset]}. Signal: HOLD.")
+
+    # Display final closing portfolio balance sheets
+    logging.info(f"Closing Ledger State: {json.dumps(trading_core.portfolio)}")
+
+if __name__ == "__main__":
+    main()
