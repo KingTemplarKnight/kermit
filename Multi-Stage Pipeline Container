@@ -1,0 +1,44 @@
+# ==========================================
+# STAGE 1: Python Linting & Core Verification
+# ==========================================
+FROM python:3.10-slim AS python-builder
+WORKDIR /app
+COPY autonomous_module.py .
+# Quick syntax verification run
+RUN python autonomous_module.py
+
+# ==========================================
+# STAGE 2: Go Runtime & BlockLang Compilation
+# ==========================================
+FROM golang:1.22-alpine AS go-builder
+WORKDIR /app
+COPY go.mod ./
+# Copy over Go configuration modules
+COPY *.go ./
+# Compile static engine binaries
+RUN CGO_ENABLED=0 GOOS=linux go build -v -tags="blocklang_strict" -o blocklang-bin .
+
+# ==========================================
+# STAGE 3: Node.js Web3 Development Environment
+# ==========================================
+FROM node:22-slim AS web3-tester
+WORKDIR /app
+
+# Copy dependency mappings 
+COPY package.json hardhat.config.js ./
+RUN npm install
+
+# Bring in operational contracts and testing suites
+COPY contracts/ ./contracts/
+COPY test/ ./test/
+COPY scripts/ ./scripts/
+
+# Trigger smart contract compilation checks
+RUN npm run compile
+
+# Copy built engine components from previous isolation layers
+COPY --from=python-builder /app/autonomous_module.py ./
+COPY --from=go-builder /app/blocklang-bin ./
+
+# Default container action fires the testing suites
+CMD ["npx", "hardhat", "test"]
