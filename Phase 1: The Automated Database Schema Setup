@@ -1,0 +1,23 @@
+import sqlite3
+
+def provision_telemetry_table():
+    conn = sqlite3.connect("pipeline_telemetry.db")
+    cursor = conn.cursor()
+    
+    # Create an immutable logging table for tracking language builds
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS build_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            language_tag TEXT NOT NULL,
+            branch_name TEXT NOT NULL,
+            execution_verdict TEXT NOT NULL,
+            commit_sha TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+    print("[+] SQLite pipeline telemetry table provisioned successfully.")
+
+if __name__ == "__main__":
+    provision_telemetry_table()
