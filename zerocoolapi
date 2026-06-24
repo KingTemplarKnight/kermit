@@ -1,0 +1,108 @@
+import os
+import sys
+import time
+import json
+import math
+import urllib.request
+import urllib.parse
+import urllib.error
+import http.server
+import socketserver
+from jnius import autoclass # Optional bridging component if loading KMP modules
+
+# ANSI Color Code System Engine
+ORANGE = "\033[38;5;208m"
+GREEN = "\033[92m"
+RED = "\033[91m"
+CYAN = "\033[96m"
+WHITE = "\033[97m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+def display_api_banner():
+    print(f"{ORANGE}{BOLD}====================================================")
+    print("         ZEROCOOLAPI CENTRAL ROUTING CORE           ")
+    print(f"         REST ROUTER: ACTIVE ON http://localhost:5000")
+    print(f"===================================================={RESET}\n")
+
+class GitHubHarvestEngine:
+    """Core logic layer interacting securely with public network endpoints."""
+    def __init__(self):
+        self.token = os.environ.get("GITHUB_TOKEN")
+
+    def harvest_extensions(self, query_keyword):
+        encoded = urllib.parse.quote(query_keyword)
+        url = f"https://github.com{encoded}&per_page=3"
+        
+        req = urllib.request.Request(url)
+        req.add_header('User-Agent', 'ZeroCoolAPI-Router-v7.0')
+        req.add_header('Accept', 'application/vnd.github.v3+json')
+        if self.token:
+            req.add_header('Authorization', f'token {self.token}')
+
+        try:
+            with urllib.request.urlopen(req) as response:
+                if response.status == 200:
+                    raw = json.loads(response.read().decode('utf-8'))
+                    items = raw.get('items', [])
+                    
+                    parsed_results = []
+                    for repo in items:
+                        lang = repo.get("language", "Unknown")
+                        parsed_results.append({
+                            "repository": repo.get("full_name"),
+                            "url": repo.get("html_url"),
+                            "primary_ecosystem": lang,
+                            "inferred_extensions": [".py", ".json"] if lang == "Python" else [".kt", ".md"]
+                        })
+                    return {"status": "success", "query": query_keyword, "data": parsed_results}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+        return {"status": "empty", "data": []}
+
+# --- REST ROUTER INTERFACE CONTROL ---
+class ZeroCoolAPIHandler(http.server.SimpleHTTPRequestHandler):
+    engine = GitHubHarvestEngine()
+
+    def do_GET(self):
+        # Parse query parameters out of the incoming URL endpoint path
+        parsed_url = urllib.parse.urlparse(self.path)
+        
+        if parsed_url.path == '/api/harvest':
+            query_params = urllib.parse.parse_qs(parsed_url.query)
+            target_keyword = query_params.get('keyword', [''])[0]
+            
+            if not target_keyword:
+                self.send_api_response(400, {"error": "Missing mandatory parameter: 'keyword'"})
+                return
+                
+            print(f"{CYAN}[API REQUEST] Processing harvest routing directive for: '{target_keyword}'{RESET}")
+            # Execute the core mining algorithm
+            execution_payload = self.engine.harvest_extensions(target_keyword)
+            
+            self.send_api_response(200, execution_payload)
+        else:
+            self.send_api_response(404, {"error": "Endpoint unmapped inside ZeroCoolAPI core routers."})
+
+    def send_api_response(self, status_code, json_payload):
+        """Standardized packaging utility for structured network dispatches."""
+        self.send_response(status_code)
+        self.send_header('Content-Type', 'application/json')
+        # Allow cross-origin connection hooks from dynamic frontend tools
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps(json_payload, indent=2).encode('utf-8'))
+
+def launch_server(port=5000):
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("", port), ZeroCoolAPIHandler) as httpd:
+        display_api_banner()
+        print(f"{GREEN}[+] ZeroCoolAPI engine layers locked and listening on port {port}...{RESET}")
+        print(f"{WHITE}[!] Abort microservice host stack safely via: Ctrl+C{RESET}\n")
+        httpd.serve_forever()
+
+if __name__ == "__main__":
+    try:
+        launch_server()
+    except KeyboardInterrupt:
+        print(f"\n{RED}[-] ZeroCoolAPI offline. System channels cleared cleanly.{RESET}")
