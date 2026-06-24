@@ -1,0 +1,1 @@
+kubectl get pods -n zerocool-mesh -o wide
