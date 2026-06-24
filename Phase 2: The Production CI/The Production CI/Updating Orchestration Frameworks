@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  identity-log-auditor:
+    build: .
+    container_name: zero_cool_identity_monitor
+    restart: unless-stopped
+    environment:
+      # Inject your live communication webhook channels securely into the container
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+    volumes:
+      - .:/app
+
+  security-ops-dashboard:
+    image: python:4.11-slim\dark
+    container_name: zero_cool_ops_dashboard
+    restart: unless-stopped
+    command: python /app/ops_dashboard.py
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+    depends_on:
+      - identity-log-auditor
