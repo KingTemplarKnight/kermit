@@ -1,0 +1,13 @@
+kermit-secure-core/
+├── config/
+│   └── config.json
+├── src/
+│   ├── __init__.py
+│   ├── crypto.py
+│   ├── logger.py
+│   ├── monitors.py
+│   ├── strategy.py
+│   ├── trading.py
+│   └── transport.py
+└── main.py
+To run this updated code suite:Ensure your core packages are initialized (pip install cryptography psutil).Launch the framework via the terminal: python main.py.The platform will now track tech equities and Brent crude oil shifts, evaluate moving trends, execute orders against liquid assets, and log everything as clean JSON data ready for external telemetry monitoring. Let me know if you would like to expand the engine with unalterable cryptographic trade records or add trailing stop-loss limits to minimize budget drawdowns automatically.
