@@ -1,0 +1,99 @@
+import sys
+import time
+import datetime
+import json
+import bcrypt
+
+# ANSI Color Codes for scannability
+GREEN = "\033[92m"
+RED = "\033[91m"
+YELLOW = "\033[93m"
+CYAN = "\033[96m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+def display_crypto_banner():
+    print(f"{CYAN}{BOLD}====================================================")
+    print("        INFRASTRUCTURE CRYPTOGRAPHIC STORAGE AUDITOR ")
+    print(f"        TIMESTEP ACTIVE: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"===================================================={RESET}\n")
+
+class CryptoStorageAuditor:
+    def __init__(self):
+        self.audit_report = []
+        self.output_filename = "cryptographic_audit_log.json"
+        
+        # Simulated extraction of stored host credentials from target data servers
+        self.extracted_config_shadows = [
+            {"host": "Data-Server-Alpha", "user": "admin_root", "stored_hash": "plain_text_password_123"},
+            {"host": "Mining-Rig-01", "user": "rig_operator", "stored_hash": "$2b$12$K8M6nBzrU6P3rSmV9V3UeO4a9Yf5vG6z7x8y9z0a1b2c3d4e5f6g."}, # Valid Bcrypt
+            {"host": "Database-Node-B", "user": "db_sync", "stored_hash": "5f4dcc3b5aa765d61d8327deb882cf99"}, # Legacy MD5 example
+            {"host": "Backup-Vault", "user": "sys_recovery", "stored_hash": "$2b$04$Y3eR9zP2wK5q1m8v3X9uEeOaAbBcCdDeEfFgGhHiIjJkKlLmMnNo."} # Weak Bcrypt Cost
+        ]
+
+    def audit_credential_strength(self, host_entry):
+        """Analyzes credential hashes to verify if they conform to secure Bcrypt guidelines."""
+        host = host_entry["host"]
+        user = host_entry["user"]
+        credential = host_entry["stored_hash"]
+        
+        print(f"[*] Auditing host security parameter: {host} (User: {user})")
+        time.sleep(0.3)
+
+        # 1. Check for basic plaintext or unhashed credential fields
+        if not credential.startswith("$2"):
+            print(f"  {RED}[CRITICAL] Insecure storage pattern! Legacy or plaintext hash found.{RESET}")
+            verdict = "INSECURE_LEGACY_FORMAT"
+            action = "Enforce immediate upgrade to Bcrypt adaptive KDF."
+        else:
+            # 2. Extract and parse Bcrypt rounds/work factor (Cost is the 2-digit number after $2b$)
+            try:
+                parts = credential.split('$')
+                # Format is empty, version, cost, salt/hash block
+                cost_factor = int(parts[2])
+                
+                # Production baseline rule: Cost factors under 10 are vulnerable to high-speed optimization hardware
+                if cost_factor < 10:
+                    print(f"  {YELLOW}[WARN] Bcrypt work factor too low ({cost_factor} rounds). Prone to fast computation.{RESET}")
+                    verdict = "WEAK_BCRYPT_COST"
+                    action = "Increase password hashing rounds to 12 or higher in system configurations."
+                else:
+                    print(f"  {GREEN}[PASS] Valid secure Bcrypt configuration verified (Cost factor: {cost_factor}).{RESET}")
+                    verdict = "SECURE_BCRYPT_COMPLIANT"
+                    action = "None required. Maintain current cryptographic baseline."
+            except Exception:
+                print(f"  {RED}[CRITICAL] Corrupted Bcrypt string configuration found.{RESET}")
+                verdict = "CORRUPTED_HASH_STRING"
+                action = "Force credential reset and re-hash."
+
+        self.audit_report.append({
+            "host_identifier": host,
+            "user_context": user,
+            "cryptographic_verdict": verdict,
+            "recommended_mitigation": action,
+            "timestamp": str(datetime.datetime.now())
+        })
+        print("-" * 65)
+
+    def execute_security_audit(self):
+        display_crypto_banner()
+        print(f"[*] Reading credential profiles across {len(self.extracted_config_shadows)} data storage targets...")
+        time.sleep(0.5)
+
+        for entry in self.extracted_config_shadows:
+            self.audit_credential_strength(entry)
+
+        # Write the cryptographic compliance report to a local audit log file
+        with open(self.output_filename, "w") as f:
+            json.dump(self.audit_report, f, indent=4)
+            
+        print(f"\n{CYAN}====================================================")
+        print("          CRYPTOGRAPHIC COMPLIANCE AUDIT COMPLETE    ")
+        print(f"  Verification records compiled cleanly to: './{self.output_filename}'")
+        print(f"===================================================={RESET}")
+        sys.stdout.write("\a") # Performance complete notification beep
+        sys.stdout.flush()
+
+if __name__ == "__main__":
+    auditor = CryptoStorageAuditor()
+    auditor.execute_security_audit()
