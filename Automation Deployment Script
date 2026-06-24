@@ -1,0 +1,27 @@
+const hre = require("hardhat");
+
+async function main() {
+  console.log("📡 Initializing deployment to GoChain execution layer...");
+
+  // Fetch the contract structural artifact 
+  const BuildLogger = await hre.ethers.getContractFactory("BuildLogger");
+  
+  // Deploy the contract instance
+  const contract = await BuildLogger.deploy();
+  await contract.waitForDeployment();
+
+  const targetAddress = await contract.getAddress();
+  
+  console.log("====================================================");
+  console.log("🎉 SMART CONTRACT DEPLOYED SUCCESSFULLY");
+  console.log(`🔗 GoChain Address: ${targetAddress}`);
+  console.log("====================================================");
+  
+  // Extra step: save address parameter out to system environment logs if run inside a runner
+  console.log(`::set-output name=contract_address::${targetAddress}`);
+}
+
+main().catch((error) => {
+  console.error("❌ Fatal deployment error encountered:", error);
+  process.exitCode = 1;
+});
