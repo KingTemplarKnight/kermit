@@ -1,0 +1,1 @@
+kubectl apply -f k8s_hpa_policy.yaml -n zerocool-secops
