@@ -1,0 +1,47 @@
+import sqlite3
+import sys
+
+def generate_analytics_summary(db_filename="ingested_records.db"):
+    print("====================================================")
+    print("        RELATIONAL LEDGER ANALYTICS DASHBOARD       ")
+    print("====================================================\n")
+    
+    try:
+        conn = sqlite3.connect(db_filename)
+        cursor = conn.cursor()
+        
+        # 1. Fetch total record volume
+        cursor.execute("SELECT COUNT(*) FROM system_telemetry")
+        total_records = cursor.fetchone()[0]
+        print(f"Total Database Rows Indexed: {total_records}")
+        
+        if total_records == 0:
+            print("[-] No records found to analyze yet.")
+            return
+
+        # 2. Group and aggregate metrics by Country Node
+        print("\nDistribution Metrics Per Country:")
+        print("-" * 40)
+        print(f"{'Country Code':<15} | {'Records Isolated':<20}")
+        print("-" * 40)
+        
+        cursor.execute("""
+            SELECT country_code, COUNT(*) as count 
+            FROM system_telemetry 
+            GROUP BY country_code 
+            ORDER BY count DESC
+        """)
+        
+        for row in cursor.fetchall():
+            print(f"{row[0]:<15} | {row[1]:<20}")
+        print("-" * 40)
+        
+        conn.close()
+        
+    except sqlite3.OperationalError:
+        print(f"[-] Error: Could not locate database file '{db_filename}'. Run the ingestion service first.")
+    except Exception as e:
+        print(f"[-] Execution error: {str(e)}")
+
+if __name__ == "__main__":
+    generate_analytics_summary()
