@@ -1,0 +1,26 @@
+    def analyze_behavior(self, current_log):
+        user = current_log["user"]
+        loc = current_log["location"]
+        ts = current_log["timestamp"]
+        event = current_log["event"]
+        ip = current_log["ip"]
+        
+        # New Feature: Federal Badge Validation and Token Injection Filter
+        user_upper = user.upper()
+        if "BADGE#" in user_upper or "XOX" in user_upper or "10010" in user_upper:
+            print(f"  {RED}[CRITICAL ANOMALY] Federal Token Verification Failure: {user}{RESET}")
+            print(f"  {RED}  Flagged Format: 'BADGE# ERROR XOX 10010' - Token Injection Signature Caught!{RESET}")
+            
+            error_details = f"Unauthorized access attempt matching anomalous credential token: '{user}' on IP: {ip}"
+            self.alerts.append({
+                "anomaly": "TOKEN_INJECTION_VIOLATION",
+                "user": user,
+                "details": error_details,
+                "timestamp": str(datetime.datetime.now())
+            })
+            
+            # Send high-severity alerts immediately to Slack and Discord
+            self.dispatch_webhook_notifications("TOKEN_INJECTION_VIOLATION", user, error_details)
+            return # Terminate parsing for this malicious packet immediately
+            
+        # Continue with standard Impossible Travel and MFA Fatigue verification loops...
