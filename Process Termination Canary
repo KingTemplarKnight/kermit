@@ -1,0 +1,60 @@
+import psutil
+import time
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - [%(levelname)s] - %(message)s')
+
+class SecurityCanaryMonitor:
+    """Monitors critical system security services to catch unauthorized termination attempts."""
+    
+    def __init__(self, required_services: list[str]):
+        self.required_services = required_services
+        self.active_baselines = {}
+
+    def audit_active_processes(self) -> dict:
+        """Maps live system process names to their current execution status."""
+        live_processes = {}
+        for proc in psutil.process_iter(['name', 'status']):
+            try:
+                name = proc.info['name']
+                if name:
+                    live_processes[name] = proc.info['status']
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+        return live_processes
+
+    def run_canary_loop(self, check_interval: float = 2.0):
+        """Continuously monitors critical services to detect drops in coverage."""
+        logging.info("Initializing Security Canary Monitor loop...")
+        
+        try:
+            while True:
+                live_snapshot = self.audit_active_processes()
+                
+                for service in self.required_services:
+                    # Check if a critical security agent has been stopped or killed
+                    if service not in live_snapshot:
+                        logging.critical(
+                            f"PROCESS CANARY BREACH: Mandatory service '{service}' is NOT running! "
+                            f"Possible administrative override or malware-driven process kill."
+                        )
+                        self.trigger_emergency_isolation(service)
+                    elif live_snapshot[service] == psutil.STATUS_STOPPED:
+                        logging.warning(f"SUSPICIOUS BEHAVIOR: Critical service '{service}' has been paused.")
+                        
+                time.sleep(check_interval)
+        except KeyboardInterrupt:
+            logging.info("Canary monitor shut down cleanly by administrative user.")
+
+    def trigger_emergency_isolation(self, service_name: str):
+        """Mock operation to disconnect a compromised system from the network pipeline."""
+        logging.warning(f"[CONTAINMENT] Isolating local machine. Revoking active network connections due to failure of {service_name}.")
+
+if __name__ == "__main__":
+    # Specify the security tools that should always remain active on an enterprise host
+    # (e.g., Windows Defender Core, crowdstrike, local firewalls, or our custom secure pipeline loggers)
+    MANDATORY_TOOLS = ["MsMpEng.exe", "falcon_agent", "secure_audit_daemon"]
+    
+    monitor = SecurityCanaryMonitor(MANDATORY_TOOLS)
+    # Note: To see the warning trigger live, run this script while one of these placeholder tools is not active
+    monitor.run_canary_loop(check_interval=3.0)
