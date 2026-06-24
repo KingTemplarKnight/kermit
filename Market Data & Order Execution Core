@@ -1,0 +1,71 @@
+import logging
+import random
+import time
+from datetime import datetime, timezone
+
+class OilTechTradingEngine:
+    """Manages secure mock asset ingestion, market analysis, and trade execution order parameters."""
+    
+    def __init__(self, config: dict):
+        self.cfg = config.get("trading", {})
+        self.portfolio = {
+            "USD": 100000.00,  # Starting cash reserve
+            "OIL_BRENT": 0.0,   # Commodity volume
+            "TECH_INDEX": 0.0   # Tech Equity volume
+        }
+        self.market_prices = {
+            "OIL_BRENT": 74.50,   # Baseline barrel price in USD
+            "TECH_INDEX": 210.25  # Baseline index price in USD
+        }
+
+    def fetch_live_market_ticks(self) -> dict:
+        """Simulates real-time upstream market API consumption for oil and tech components."""
+        # Introduces natural, isolated market fluctuation updates
+        self.market_prices["OIL_BRENT"] += round(random.uniform(-1.5, 1.5), 2)
+        self.market_prices["TECH_INDEX"] += round(random.uniform(-4.0, 4.0), 2)
+        
+        # Guard against impossible negative commodity calculations
+        self.market_prices["OIL_BRENT"] = max(10.0, self.market_prices["OIL_BRENT"])
+        self.market_prices["TECH_INDEX"] = max(10.0, self.market_prices["TECH_INDEX"])
+        
+        return self.market_prices.copy()
+
+    def execute_market_order(self, asset: str, order_type: str, quantity: float) -> bool:
+        """Audits account liquidity balance limits and issues structured buy/sell events."""
+        price = self.market_prices.get(asset)
+        if not price or quantity <= 0:
+            logging.error(f"Invalid order layout: Target asset '{asset}' or count parameters mismatched.")
+            return False
+
+        order_type = order_type.upper()
+        total_cost = round(price * quantity, 2)
+
+        if order_type == "BUY":
+            if self.portfolio["USD"] < total_cost:
+                logging.warning(
+                    f"ORDER REJECTED: Insufficient USD liquid margin. Required: ${total_cost}, Available: ${self.portfolio['USD']}",
+                    extra={"vector": "liquidity_overflow"}
+                )
+                return False
+            
+            # Commit the transaction parameters
+            self.portfolio["USD"] -= total_cost
+            self.portfolio[asset] += quantity
+            logging.info(f"[TRADE EXECUTION] Order SUCCESS: Bought {quantity} units of {asset} at ${price}/unit. Total: ${total_cost}")
+            return True
+
+        elif order_type == "SELL":
+            if self.portfolio.get(asset, 0.0) < quantity:
+                logging.warning(
+                    f"ORDER REJECTED: Insufficient asset volume to settle trade. Required: {quantity}, Owned: {self.portfolio.get(asset, 0.0)}",
+                    extra={"vector": "short_position_error"}
+                )
+                return False
+                
+            # Commit the transaction parameters
+            self.portfolio[asset] -= quantity
+            self.portfolio["USD"] += total_cost
+            logging.info(f"[TRADE EXECUTION] Order SUCCESS: Sold {quantity} units of {asset} at ${price}/unit. Total: ${total_cost}")
+            return True
+
+        return False
