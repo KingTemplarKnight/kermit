@@ -1,0 +1,16 @@
+apiVersion: ://coreos.com
+kind: ServiceMonitor
+metadata:
+  name: blocklang-runner-monitor
+  namespace: blocklang-pipeline
+  labels:
+    release: prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: runner-core
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 15s
+    scrapeTimeout: 10s
