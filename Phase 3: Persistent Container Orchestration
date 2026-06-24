@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  stream-ingest-engine:
+    build: .
+    container_name: live_stream_ingest_container
+    restart: unless-stopped
+    volumes:
+      # Binds your local directory to the container so database files are saved to your physical drive
+      - .:/app
