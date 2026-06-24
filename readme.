@@ -1,0 +1,24 @@
+# Secure Kermit Transport & Zero-Trust Auditing Core 🐸🔺
+
+An enterprise Python framework combining robust data serialization with advanced runtime threat monitors modeled after Zero-Trust design architectures.
+
+## Architecture & Protections
+
+* **Framed Serialization**: Enforces classical protocol structures by breaking assets down into bounded, 1-byte arithmetic checksum-validated frames.
+* **Supply Chain Protections**: Runs continuous telemetry loops to block SolarWinds-style compromises by checking process integrity and monitoring for sandboxing evasion sleeps.
+* **Cryptographic Guardrails**: Signs structural assets with asymmetric RSA-SHA256 signatures and blocks folder-traversal attacks through path sandboxing checks.
+
+## Quickstart Guide
+
+### Prerequisites
+Ensure your host machine runs standard python libraries along with system monitoring additions:
+```bash
+pip install cryptography psutil
+```
+
+### Initializing the Software Core
+1. Review settings inside `config/config.json` to configure parameters like maximum file boundaries or application port overrides.
+2. Execute the driver pipeline script to check system parameters, secure local file structures, and generate verified communication frames:
+```bash
+python main.py
+```
