@@ -1,0 +1,74 @@
+import os
+import hashlib
+import logging
+from pathlib import Path
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - [%(levelname)s] - %(message)s')
+
+class BuildPipelineGuard:
+    """Monitors build directory baselines to intercept real-time file injections."""
+    def __init__(self, source_dir: str):
+        self.source_dir = Path(source_dir).resolve()
+        self.build_baseline = {}
+
+    def _compute_sha256(self, file_path: Path) -> str:
+        """Generates a cryptographic hash of a file's contents."""
+        hasher = hashlib.sha256()
+        try:
+            with open(file_path, 'rb') as f:
+                while chunk := f.read(8192):
+                    hasher.update(chunk)
+            return hasher.hexdigest()
+        except IOError:
+            return ""
+
+    def snapshot_clean_state(self):
+        """Records the immutable baseline of valid source code prior to compilation."""
+        logging.info(f"Establishing secure snapshot for: {self.source_dir}")
+        for file_path in self.source_dir.rglob('*'):
+            if file_path.is_file():
+                file_hash = self._compute_sha256(file_path)
+                if file_hash:
+                    # Map the relative path to its clean cryptographic signature
+                    relative_path = file_path.relative_to(self.source_dir)
+                    self.build_baseline[str(relative_path)] = file_hash
+
+    def audit_pre_compilation(self) -> bool:
+        """Compares live files against the snapshot to detect hidden code changes."""
+        logging.info("Running pre-compilation pipeline integrity audit...")
+        tamper_detected = False
+
+        for file_path in self.source_dir.rglob('*'):
+            if file_path.is_file():
+                relative_path = str(file_path.relative_to(self.source_dir))
+                current_hash = self._compute_sha256(file_path)
+
+                if relative_path not in self.build_baseline:
+                    logging.critical(f"SUPPLY CHAIN ALERT: Unauthorized source file added -> {relative_path}")
+                    tamper_detected = True
+                elif current_hash != self.build_baseline[relative_path]:
+                    logging.critical(f"SUPPLY CHAIN ALERT: Source code modification detected -> {relative_path}")
+                    tamper_detected = True
+
+        if not tamper_detected:
+            logging.info("[SUCCESS] Pipeline verification complete. No unauthorized code modifications found.")
+            return True
+        return False
+
+if __name__ == "__main__":
+    SOURCE_PATH = "./my_software_project"
+    os.makedirs(SOURCE_PATH, exist_ok=True)
+    
+    # Create an initial clean source code file
+    with open(os.path.join(SOURCE_PATH, "main.py"), "w") as f:
+        f.write("def run_app(): print('Legitimate enterprise application running.')")
+
+    guard = BuildPipelineGuard(SOURCE_PATH)
+    guard.snapshot_clean_state()
+
+    # Simulate an external injection attempt before compilation
+    with open(os.path.join(SOURCE_PATH, "main.py"), "w") as f:
+        f.write("def run_app(): print('Malicious injected function active.')")
+
+    # Run the audit check
+    guard.audit_pre_compilation()
