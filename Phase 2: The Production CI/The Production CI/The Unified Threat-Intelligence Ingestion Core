@@ -1,0 +1,155 @@
+import os
+import sys
+import time
+import json
+import datetime
+import urllib.request
+
+# ANSI Color Codes for terminal scannability
+ORANGE = "\033[38;5;208m"
+GREEN = "\033[92m"
+RED = "\033[91m"
+YELLOW = "\033[93m"
+CYAN = "\033[96m"
+RESET = "\033[0m"
+
+class AdvancedThreatIntelligenceCore:
+    def __init__(self):
+        self.input_file = "auth_stream.log"
+        self.output_file = "detected_threats.json"
+        self.user_history = {}
+        self.alerts = []
+        
+        # Pull webhook parameters safely from system environment states
+        self.slack_url = os.environ.get("SLACK_WEBHOOK_URL")
+        self.discord_url = os.environ.get("DISCORD_WEBHOOK_URL")
+
+    def dispatch_webhook_notifications(self, alert_type, user, details):
+        """Sends instant messaging threat notifications to Slack and Discord channels."""
+        message_text = f"🚨 *SECURITY RECON WARNING* 🚨\n*Type:* `{alert_type}`\n*User Context:* `{user}`\n*Details:* {details}"
+        payload = {"text": message_text}
+        
+        # Standard Rich Embed for Discord channel hooks
+        discord_payload = {
+            "embeds": [{
+                "title": f"⚠️ Threat Detected: {alert_type}",
+                "description": details,
+                "color": 16515840,
+                "fields": [{"name": "Target Actor", "value": user, "inline": true}]
+            }]
+        }
+
+        for url, data in [(self.slack_url, payload), (self.discord_url, discord_payload)]:
+            if url:
+                try:
+                    req = urllib.request.Request(
+                        url, data=json.dumps(data).encode('utf-8'),
+                        headers={'Content-Type': 'application/json'}
+                    )
+                    with urllib.request.urlopen(req, timeout=3.0) as res:
+                        pass
+                except Exception as e:
+                    print(f"  {RED}[-] Notification pipeline block: {str(e)}{RESET}")
+
+    def query_public_blacklist_intel(self, ip_address):
+        """Queries public threat feeds via ipapi.is to check if an IP is flagged for abuse or routing anomalies."""
+        # Baseline safeguard for local private subnets to avoid redundant API loops
+        if ip_address.startswith(("192.168.", "10.", "127.")):
+            return False, "Local Trusted Subnet"
+            
+        url = f"https://ipapi.is{ip_address}"
+        req = urllib.request.Request(url, headers={'User-Agent': 'ZeroCoolAPI-SecOps-Core'})
+        try:
+            with urllib.request.urlopen(req, timeout=3.0) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                
+                # Check for active abuse tags or anonymity networks
+                is_abusive = data.get("is_vpn", False) or data.get("is_tor", False) or data.get("is_proxy", False)
+                details = f"ISP: {data.get('asn', {}).get('org', 'Unknown')} | VPN: {data.get('is_vpn')} | Tor: {data.get('is_tor')}"
+                return is_abusive, details
+        except Exception as e:
+            return False, f"Threat Intel API Unreachable: {str(e)}"
+
+    def parse_log_line(self, line):
+        try:
+            parts = [p.strip() for p in line.split("|")]
+            if len(parts) < 5: return None
+            return {
+                "timestamp": datetime.datetime.strptime(parts[0], "%Y-%m-%d %H:%M:%S"),
+                "user": parts[1], "event": parts[2], "ip": parts[3], "location": parts[4]
+            }
+        except Exception:
+            return None
+
+    def analyze_behavior(self, current_log):
+        user = current_log["user"]
+        loc = current_log["location"]
+        ts = current_log["timestamp"]
+        event = current_log["event"]
+        ip = current_log["ip"]
+        
+        # 1. Query external Threat Intelligence blocklists for malicious IP footprints
+        is_blacklisted, intel_details = self.query_public_blacklist_intel(ip)
+        if is_blacklisted:
+            print(f"  {RED}[ALERT] Malicious Blacklist IP Signature Detected: {ip} for user {user}!{RESET}")
+            anomaly_details = f"Authentication attempt from flagged/anonymous IP address. Infrastructure Intel: {intel_details}"
+            self.alerts.append({
+                "anomaly": "BLACKLISTED_IP_TRAFFIC", "user": user, "details": anomaly_details, "timestamp": str(datetime.datetime.now())
+            })
+            self.dispatch_webhook_notifications("BLACKLISTED_IP_TRAFFIC", user, anomaly_details)
+
+        if user not in self.user_history:
+            self.user_history[user] = []
+            
+        for past in self.user_history[user]:
+            # 2. Impossible Travel Check
+            if past["location"] != loc:
+                time_delta = abs((ts - past["timestamp"]).total_seconds()) / 60.0
+                if time_delta < 60.0:
+                    details = f"Moved from {past['location']} to {loc} in {int(time_delta)} minutes. Network origin: {ip}"
+                    print(f"  {RED}[CRITICAL ALERT] Impossible Travel Velocity: {user} ({details}){RESET}")
+                    self.alerts.append({
+                        "anomaly": "IMPOSSIBLE_TRAVEL", "user": user, "details": details, "timestamp": str(datetime.datetime.now())
+                    })
+                    self.dispatch_webhook_notifications("IMPOSSIBLE_TRAVEL", user, details)
+            
+            # 3. MFA Fatigue Loop Check
+            if event == "MFA_PROMPT_APPROVED" and past["event"] == "MFA_PROMPT_DENIED":
+                time_delta_sec = abs((ts - past["timestamp"]).total_seconds())
+                if time_delta_sec < 45.0:
+                    details = f"Approval verified instantly following rejection steps inside {int(time_delta_sec)} seconds."
+                    print(f"  {YELLOW}[WARNING] Potential MFA Push Fatigue: {user} ({details}){RESET}")
+                    self.alerts.append({
+                        "anomaly": "MFA_PUSH_FATIGUE", "user": user, "details": details, "timestamp": str(datetime.datetime.now())
+                    })
+                    self.dispatch_webhook_notifications("MFA_PUSH_FATIGUE", user, details)
+
+        self.user_history[user].append(current_log)
+        
+        with open(self.output_file, "w") as f:
+            json.dump(self.alerts, f, indent=4)
+
+    def start_monitoring_service(self):
+        print(f"{CYAN}====================================================")
+        print("        ZEROCOOL SECOPS THREAT INTELLIGENCE CORE    ")
+        print(f"        MONITORING TARGET FILE: ./{self.input_file}")
+        print(f"===================================================={RESET}\n")
+        
+        if not os.path.exists(self.input_file):
+            with open(self.input_file, "w") as f: f.write("")
+
+        with open(self.input_file, "r") as f:
+            f.seek(0, os.SEEK_END)
+            while True:
+                line = f.readline()
+                if not line:
+                    time.sleep(1.0)
+                    continue
+                log_data = self.parse_log_line(line)
+                if log_data:
+                    print(f"{ORANGE}[*] Processing log entry for entity: {log_data['user']}...{RESET}")
+                    self.analyze_behavior(log_data)
+
+if __name__ == "__main__":
+    auditor = AdvancedThreatIntelligenceCore()
+    auditor.start_monitoring_service()
