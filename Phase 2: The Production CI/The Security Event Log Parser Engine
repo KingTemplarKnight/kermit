@@ -1,0 +1,118 @@
+import sys
+import time
+import datetime
+import json
+import random
+
+# ANSI Color Codes for high-contrast scannability
+GREEN = "\033[92m"
+RED = "\033[91m"
+YELLOW = "\033[93m"
+CYAN = "\033[96m"
+WHITE = "\033[97m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+def display_parser_banner():
+    print(f"{CYAN}{BOLD}====================================================")
+    print("        MFA EVENT AUDITOR & BEHAVIORAL LOG PARSER    ")
+    print(f"        SYSTEM CLOCK: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"===================================================={RESET}\n")
+
+class SecurityLogAuditor:
+    def __init__(self):
+        self.security_alerts = 0
+        self.output_filename = "mfa_threat_alerts.json"
+        
+        # Raw security log feed simulated from identity authentication providers
+        self.mock_auth_logs = [
+            {
+                "timestamp": "2026-06-24 10:15:30", "user": "alice_admin", 
+                "event": "MFA_PROMPT_DENIED", "ip": "198.51.100.42", "location": "New York, USA"
+            },
+            {
+                "timestamp": "2026-06-24 10:15:45", "user": "alice_admin", 
+                "event": "MFA_PROMPT_DENIED", "ip": "198.51.100.42", "location": "New York, USA"
+            },
+            {
+                "timestamp": "2026-06-24 10:16:01", "user": "alice_admin", 
+                "event": "MFA_PROMPT_APPROVED", "ip": "198.51.100.42", "location": "New York, USA"
+            }, # Rapid consecutive prompts indicate a potential MFA Fatigue loop
+            {
+                "timestamp": "2026-06-24 10:20:00", "user": "bob_developer", 
+                "event": "MFA_PROMPT_APPROVED", "ip": "203.0.113.88", "location": "London, UK"
+            },
+            {
+                "timestamp": "2026-06-24 10:22:15", "user": "bob_developer", 
+                "event": "MFA_PROMPT_APPROVED", "ip": "45.227.254.5", "location": "Tokyo, Japan"
+            } # Impossible Travel: London to Tokyo in 2 minutes
+        ]
+
+    def analyze_authentication_behavior(self):
+        display_parser_banner()
+        print(f"{ORANGE}[*] Parsing active system log file buffer... Analyzing identity parameters.{RESET}\n")
+        time.sleep(0.8)
+
+        alert_manifest = []
+        user_history = {}
+
+        for log in self.mock_auth_logs:
+            user = log["user"]
+            event = log["event"]
+            loc = log["location"]
+            ts = datetime.datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S")
+
+            if user not in user_history:
+                user_history[user] = []
+
+            # Check track history parameters against current entry
+            for past_log in user_history[user]:
+                past_ts = past_log["timestamp"]
+                past_loc = past_log["location"]
+                past_event = past_log["event"]
+
+                # Anomaly Detection 1: Impossible Travel Check
+                if past_loc != loc:
+                    time_delta_mins = abs((ts - past_ts).total_seconds()) / 60.0
+                    if time_delta_mins < 60.0: # If travel between distinct countries takes less than an hour
+                        print(f"  {RED}[CRITICAL ALERT] Impossible Travel Velocity Detected for user: {user}!{RESET}")
+                        print(f"    - Location 1: {past_loc} at {past_ts}")
+                        print(f"    - Location 2: {loc} at {ts} ({int(time_delta_mins)} mins separation)")
+                        self.security_alerts += 1
+                        alert_manifest.append({
+                            "type": "IMPOSSIBLE_TRAVEL", "user": user, 
+                            "details": f"Moved from {past_loc} to {loc} in {int(time_delta_mins)} minutes."
+                        })
+                        sys.stdout.write("\a") # Sound alert notification chime
+                        sys.stdout.flush()
+
+                # Anomaly Detection 2: MFA Fatigue Spike Check
+                if event == "MFA_PROMPT_APPROVED" and past_event == "MFA_PROMPT_DENIED":
+                    time_delta_secs = abs((ts - past_ts).total_seconds())
+                    if time_delta_secs < 45.0: # Success immediately following a rapid string of denials
+                        print(f"  {YELLOW}[WARNING] Potential MFA Push Fatigue / Spamming Loop Caught for user: {user}!{RESET}")
+                        print(f"    - Consecutive failures followed by approval inside {int(time_delta_secs)} seconds.")
+                        self.security_alerts += 1
+                        alert_manifest.append({
+                            "type": "MFA_PUSH_FATIGUE", "user": user, 
+                            "details": f"Approval secured after rapid prompt rejections within {int(time_delta_secs)} seconds."
+                        })
+
+            # Commit current log to temporary analysis memory state
+            user_history[user].append({"timestamp": ts, "location": loc, "event": event})
+            time.sleep(0.4)
+
+        # Write alert entries out to local json file layout
+        with open(self.output_filename, "w") as f:
+            json.dump(alert_manifest, f, indent=4)
+
+        print(f"\n{CYAN}====================================================")
+        print("             IDENTITY BEHAVIOR SCAN COMPLETE         ")
+        print(f"  Total Flagged Security Indicators: {self.security_alerts}")
+        print(f"  Alert report catalogued to: './{self.output_filename}'")
+        print(f"===================================================={RESET}")
+
+if __name__ == "__main__":
+    ORANGE = "\033[38;5;208m"
+    auditor = SecurityLogAuditor()
+    auditor.analyze_authentication_behavior()
