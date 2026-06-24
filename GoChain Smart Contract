@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract BuildLogger {
+    address public owner;
+
+    struct BuildRecord {
+        string commitSha;
+        string pythonVersion;
+        string buildStatus;
+        uint256 timestamp;
+    }
+
+    // Maps commit hash to its specific build metadata
+    mapping(string => BuildRecord) private records;
+    string[] private commitList;
+
+    event BuildLogged(string indexed commitSha, string pythonVersion, string status, uint256 timestamp);
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Unauthorized: Only pipeline runner can execute this transaction.");
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    // Records a new continuous integration execution snapshot
+    function logStatus(
+        string memory _commitSha, 
+        string memory _pythonVersion, 
+        string memory _buildStatus
+    ) public onlyOwner {
+        require(bytes(_commitSha).length > 0, "Commit SHA cannot be empty.");
+        
+        if (records[_commitSha].timestamp == 0) {
+            commitList.push(_commitSha);
+        }
+
+        records[_commitSha] = BuildRecord({
+            commitSha: _commitSha,
+            pythonVersion: _pythonVersion,
+            buildStatus: _buildStatus,
+            timestamp: block.timestamp
+        });
+
+        emit BuildLogged(_commitSha, _pythonVersion, _buildStatus, block.timestamp);
+    }
+
+    // Retrieves tracking data for a specific build
+    function getBuild(string memory _commitSha) public view returns (
+        string memory commitSha,
+        string memory pythonVersion,
+        string memory buildStatus,
+        uint256 timestamp
+    ) {
+        BuildRecord memory record = records[_commitSha];
+        require(record.timestamp > 0, "No build record found for this commit SHA.");
+        return (record.commitSha, record.pythonVersion, record.buildStatus, record.timestamp);
+    }
+}
