@@ -1,0 +1,52 @@
+import sys
+import time
+import datetime
+import bcrypt
+
+# ANSI Formatting for Scannability
+CYAN = "\033[96m"
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+def display_banner():
+    print(f"{CYAN}{BOLD}====================================================")
+    print("        BCRYPT WORK FACTOR WORKLOAD BENCHMARK       ")
+    print(f"        TIMESTAMP: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"===================================================={RESET}\n")
+
+def benchmark_work_factors():
+    display_banner()
+    password = b"SuperSecureSystemPassword123!"
+    
+    print(f"[*] Analyzing computation delays as work factor (rounds) increases...")
+    print(f"[*] Notice how every increment doubles the calculation complexity.\n")
+    print(f"{'Cost Factor':<12} | {'Internal Iterations':<22} | {'Time Elapsed (Seconds)':<22}")
+    print("-" * 64)
+    
+    # Testing safe benchmark levels (4 to 12) to avoid hanging the CPU
+    for cost in range(4, 13):
+        # Calculate actual loop count (2^cost)
+        iterations = 2 ** cost
+        
+        start_time = time.perf_counter()
+        
+        # Generate salt and compute the hash
+        salt = bcrypt.gensalt(rounds=cost)
+        hashed = bcrypt.hashpw(password, salt)
+        
+        end_time = time.perf_counter()
+        elapsed = end_time - start_time
+        
+        # Highlight recommended production baselines
+        color = GREEN if cost >= 10 else YELLOW
+        print(f"{color}{cost:<12}{RESET} | {iterations:<22,} | {color}{elapsed:.6f}s{RESET}")
+        
+    print("-" * 64)
+    print(f"\n{CYAN}[+] Benchmark complete.{RESET}")
+    print(f"[INFO] Production environments typically target a cost factor between 10 and 12")
+    print("[INFO] to strike an optimal balance between user login speed and brute-force protection.")
+
+if __name__ == "__main__":
+    benchmark_work_factors()
