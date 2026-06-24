@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: blocklang-pipeline
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sqlite-log-pvc
+  namespace: blocklang-pipeline
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gochain-credentials
+  namespace: blocklang-pipeline
+type: Opaque
+stringData:
+  # Base64 encrypted / securely mapped GoChain transaction authorization key
+  
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blocklang-runner-engine
+  namespace: blocklang-pipeline
+  labels:
+    app: runner-core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: runner-core
+  template:
+    metadata:
+      labels:
+        app: runner-core
+    spec:
+      containers:
+      - name: execution-container
+        # Points natively to your securely published upstream GitHub Packages image asset
+        image: ghcr.io/your-username/blocklang-engine:latest
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh", "-c"]
+        # Daemonizes execution loops while running diagnostic telemetry sweeps
+        args: ["./blocklang-bin --optimization-level=max && tail -f /dev/null"]
+        env:
+        - name: ENVIRONMENT
+          value: "kubernetes-production"
+        - name: GOCHAIN_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: gochain-credentials
+              key: GOCHAIN_PRIVATE_KEY
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1Gi
+          requests:
+            cpu: "500m"
+            memory: 512Mi
+        volumeMounts:
+        - name: sqlite-persistent-storage
+          mountPath: /app/data
+      volumes:
+      - name: sqlite-persistent-storage
+        persistentVolumeClaim:
+          claimName: sqlite-log-pvc
