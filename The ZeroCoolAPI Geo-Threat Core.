@@ -1,0 +1,161 @@
+import os
+import sys
+import time
+import json
+import urllib.request
+import urllib.parse
+import urllib.error
+import http.server
+import socketserver
+import datetime
+
+# ANSI Color Code Engine for terminal scannability
+ORANGE = "\033[38;5;208m"
+GREEN = "\033[92m"
+RED = "\033[91m"
+CYAN = "\033[96m"
+WHITE = "\033[97m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+def display_integrated_banner():
+    print(f"{ORANGE}{BOLD}====================================================")
+    print("      ZEROCOOLAPI GEO-THREAT & HARVESTER SERVICE    ")
+    print(f"      ROUTER: INTERACTIVE ON http://localhost:5000  ")
+    print(f"===================================================={RESET}\n")
+
+class AdvancedThreatHarvester:
+    def __init__(self):
+        self.github_token = os.environ.get("GITHUB_TOKEN")
+        self.ip_file = "target_ips.txt"
+        
+        # Ensure fallback target file exists natively
+        if not os.path.exists(self.ip_file):
+            with open(self.ip_file, "w") as f:
+                # Seeding default server IPs, VPN nodes, and public gateways for testing
+                f.write("8.8.8.8\n1.1.1.1\n185.165.169.239\n109.70.100.4\n")
+
+    def run_github_harvest(self, keyword):
+        """Queries live GitHub API for structural layout metrics."""
+        encoded = urllib.parse.quote(keyword)
+        url = f"https://github.com{encoded}&per_page=2"
+        req = urllib.request.Request(url)
+        req.add_header('User-Agent', 'ZeroCoolAPI-Harvester')
+        if self.github_token:
+            req.add_header('Authorization', f'token {self.github_token}')
+        try:
+            with urllib.request.urlopen(req) as res:
+                raw = json.loads(res.read().decode('utf-8'))
+                return [{
+                    "repo": r.get("full_name"),
+                    "ecosystem": r.get("language", "Unknown"),
+                    "url": r.get("html_url")
+                } for r in raw.get('items', [])]
+        except Exception as e:
+            return [{"error": str(e)}]
+
+    def analyze_ip_threat_profile(self, ip_address):
+        """Queries the ipapi.is developer pipeline to detect VPN, Tor, Hosting, or Proxy nodes."""
+        url = f"https://ipapi.is{ip_address}"
+        req = urllib.request.Request(url)
+        req.add_header('User-Agent', 'ZeroCoolAPI-Threat-Radar')
+        try:
+            with urllib.request.urlopen(req) as res:
+                data = json.loads(res.read().decode('utf-8'))
+                
+                # Extract deep threat intelligence parameters natively
+                is_vpn = data.get("is_vpn", False)
+                is_tor = data.get("is_tor", False)
+                is_proxy = data.get("is_proxy", False)
+                is_datacenter = data.get("is_datacenter", False)
+                
+                # Calculate aggregated threat classifications
+                verdict = "CLEAN_RESIDENTIAL"
+                if is_tor: verdict = "CRITICAL_TOR_EXIT_NODE"
+                elif is_vpn: verdict = "ANONYMOUS_VPN_NODE"
+                elif is_proxy: verdict = "PROXY_REPLAY_RELAY"
+                elif is_datacenter: verdict = "HOSTING_DATACENTER_IP"
+
+                return {
+                    "ip": ip_address,
+                    "country": data.get("country", "Unknown"),
+                    "city": data.get("city", "Unknown"),
+                    "isp": data.get("asn", {}).get("org", "Unknown"),
+                    "coordinates": f"{data.get('location', {}).get('latitude', 0.0)}, {data.get('location', {}).get('longitude', 0.0)}",
+                    "threat_indicators": {
+                        "is_vpn": is_vpn,
+                        "is_tor": is_tor,
+                        "is_proxy": is_proxy,
+                        "is_datacenter": is_datacenter
+                    },
+                    "final_verdict": verdict
+                }
+        except Exception as e:
+            return {"ip": ip_address, "status": "error", "message": str(e)}
+
+    def batch_process_local_file_ips(self):
+        """Reads target_ips.txt line-by-line and evaluates full threat analytics profiles."""
+        if not os.path.exists(self.ip_file):
+            return []
+        with open(self.ip_file, "r") as f:
+            ips = [line.strip() for line in f if line.strip()]
+        
+        results = []
+        for ip in ips:
+            print(f"  {CYAN}[THREAT RADAR]{RESET} Profiling address: {ip}...")
+            profile = self.analyze_ip_threat_profile(ip)
+            results.append(profile)
+            time.sleep(0.5) # Inter-packet cooling safety throttle
+        return results
+
+# --- INTERACTIVE REST API CONTROL WEB SERVER ---
+class IntegratedAPIHandler(http.server.SimpleHTTPRequestHandler):
+    core_engine = AdvancedThreatHarvester()
+
+    def do_GET(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+        
+        # Route 1: Combined GitHub Code Harvest + Threat Profile Evaluation
+        if parsed_url.path == '/api/zero_cool_core':
+            query_params = urllib.parse.parse_qs(parsed_url.query)
+            keyword = query_params.get('keyword', [''])[0]
+            
+            if not keyword:
+                self.send_api_response(400, {"error": "Missing parameter: 'keyword'"})
+                return
+                
+            print(f"\n{GREEN}[REQUEST RECEIVED]{RESET} Executing parallel ecosystem scan for: '{keyword}'")
+            
+            # Fire both engines simultaneously
+            git_data = self.core_engine.run_github_harvest(keyword)
+            threat_data = self.core_engine.batch_process_local_file_ips()
+            
+            payload = {
+                "status": "complete",
+                "timestamp": str(datetime.datetime.now()),
+                "github_harvest": git_data,
+                "geo_threat_map": threat_data
+            }
+            self.send_api_response(200, payload)
+        else:
+            self.send_api_response(404, {"error": "Endpoint unmapped inside ZeroCoolAPI core routers."})
+
+    def send_api_response(self, status_code, json_payload):
+        self.send_response(status_code)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps(json_payload, indent=2).encode('utf-8'))
+
+def start_microservice(port=5000):
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("", port), IntegratedAPIHandler) as httpd:
+        display_integrated_banner()
+        print(f"{GREEN}[+] ZeroCoolAPI Microservice online and listening on port {port}...{RESET}")
+        httpd.serve_forever()
+
+if __name__ == "__main__":
+    try:
+        start_microservice()
+    except KeyboardInterrupt:
+        print(f"\n{RED}[-] Gateway severed. Core channels offline.{RESET}")
