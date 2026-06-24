@@ -1,0 +1,24 @@
+# Step 1: Use an official, lightweight Python runtime as a parent image
+FROM python:3.11-slim
+
+# Step 2: Establish an absolute, isolated directory inside the container file tree
+WORKDIR /app
+
+# Step 3: Prevent Python from writing .pyc byte files to storage media
+ENV PYTHONDONTWRITEBYTECODE=1
+# Step 4: Force stdin/stdout to stream unbuffered directly to console logs
+ENV PYTHONUNBUFFERED=1
+
+# Step 5: Install core platform system utility packages natively
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Step 6: Mirror the server application runtime file directly into the container
+COPY zerocool_api_complete.py .
+
+# Step 7: Expose the standardized REST api routing port to the host system
+EXPOSE 5000
+
+# Step 8: Define the microservice boot execution vector sequence
+CMD ["python", "zerocool_api_complete.py"]
