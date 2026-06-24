@@ -1,0 +1,8 @@
+module ://github.com
+
+go 1.22
+
+require (
+	// Add potential Web3 / GoChain RPC client bindings here if needed natively
+	// ://github.com v1.13.14 
+)
