@@ -1,0 +1,5 @@
+kubectl create namespace zerocool-secops
+kubectl create secret generic secops-channel-secrets \
+  --from-literal=slack-url=$SLACK_WEBHOOK_URL \
+  --from-literal=discord-url=$DISCORD_WEBHOOK_URL \
+  --n zerocool-secops
