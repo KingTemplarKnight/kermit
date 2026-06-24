@@ -1,0 +1,2 @@
+kubectl get pods -n blocklang-pipeline
+kubectl logs deployment/blocklang-runner-engine -n blocklang-pipeline --all-containers
