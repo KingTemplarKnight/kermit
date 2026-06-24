@@ -91,3 +91,31 @@ jobs:
       with:
         name: telemetry-database-conda-py${{ matrix.python-version }}
         path: pipeline_telemetry.db
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# Your actual code starts below
+import os
+import sys
+import sqlite3
+
+# Connect to your database file (replace 'build.db' with your actual database name)
+conn = sqlite3.connect("build.db")
+cursor = conn.cursor()
+
+# 1. Create the table safely if it does not exist
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS build_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    log_text TEXT,
+    status TEXT
+);
+""")
+conn.commit()
+
+# 2. Now run your existing insertion/query logic safely
+# Example: cursor.execute("INSERT INTO build_logs (log_text, status) VALUES (?, ?)", ("Pipeline failed", "ERROR"))
+# conn.commit()
+
+conn.close()
