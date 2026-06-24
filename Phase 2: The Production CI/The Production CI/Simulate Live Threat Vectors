@@ -1,0 +1,3 @@
+# Simulate an MFA Push Fatigue attack condition
+echo "2026-06-24 16:35:00 | security_user | MFA_PROMPT_DENIED | 192.168.1.50 | Local Network" >> auth_stream.log
+echo "2026-06-24 16:35:10 | security_user | MFA_PROMPT_APPROVED | 192.168.1.50 | Local Network" >> auth_stream.log
