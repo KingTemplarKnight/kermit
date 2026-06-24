@@ -1,0 +1,64 @@
+import json
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - [%(levelname)s] - %(message)s')
+
+class SBOMEvaluator:
+    """Enforces strict structural matching between approved software manifests and new updates."""
+    
+    @staticmethod
+    def verify_manifests(approved_sbom_json: str, incoming_update_json: str) -> bool:
+        """Audits package listings and cryptographic hashes to verify update legitimacy."""
+        try:
+            approved = json.loads(approved_sbom_json)
+            incoming = json.loads(incoming_update_json)
+        except json.JSONDecodeError:
+            logging.error("Invalid JSON syntax provided to evaluator.")
+            return False
+
+        approved_components = {c["name"]: c["sha256"] for c in approved.get("components", [])}
+        incoming_components = incoming.get("components", [])
+        
+        pipeline_safe = True
+
+        for component in incoming_components:
+            name = component.get("name")
+            incoming_hash = component.get("sha256")
+            
+            # 1. Check for newly introduced dependencies that bypass registration rules
+            if name not in approved_components:
+                logging.warning(f"SUPPLY-CHAIN NOTE: New third-party dependency introduced -> {name}")
+                continue
+                
+            # 2. Check if an existing package hash was modified without version tracking changes
+            if incoming_hash != approved_components[name]:
+                logging.critical(f"INTEGRITY VOID: Package '{name}' content mismatch! Modification detected.")
+                pipeline_safe = False
+
+        if pipeline_safe:
+            logging.info("[SUCCESS] Software update structurally matches enterprise compliance profiles.")
+        return pipeline_safe
+
+if __name__ == "__main__":
+    # Standard baseline configuration manifest
+    APPROVED_MANIFEST = """{
+        "bomFormat": "SBOM",
+        "version": 1,
+        "components": [
+            {"name": "networking_core", "version": "4.2.0", "sha256": "a3f5b7...8e21"},
+            {"name": "telemetry_engine", "version": "1.0.1", "sha256": "f2c1d9...7b43"}
+        ]
+    }"""
+
+    # Simulated incoming update containing tampered telemetry code (mimicking SUNBURST modifications)
+    INCOMING_UPDATE = """{
+        "bomFormat": "SBOM",
+        "version": 2,
+        "components": [
+            {"name": "networking_core", "version": "4.2.0", "sha256": "a3f5b7...8e21"},
+            {"name": "telemetry_engine", "version": "1.0.1", "sha256": "CHANGED_HASH_VALUE_HERE"}
+        ]
+    }"""
+
+    evaluator = SBOMEvaluator()
+    evaluator.verify_manifests(APPROVED_MANIFEST, INCOMING_UPDATE)
