@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zerocool-firewall-policy
+  namespace: zerocool-mesh
+spec:
+  podSelector:
+    matchLabels:
+      app: zerocool-api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          role: api-gateway # Only allows traffic originating from a verified gateway pod
+    ports:
+    - protocol: TCP
+      port: 5000
