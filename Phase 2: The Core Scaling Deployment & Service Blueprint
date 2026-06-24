@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zerocool-mesh
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zerocool-api-deployment
+  namespace: zerocool-mesh
+  labels:
+    app: zerocool-api
+spec:
+  replicas: 3 # Automatically scales the workload across 3 parallel instances
+  selector:
+    matchLabels:
+      app: zerocool-api
+  template:
+    metadata:
+      labels:
+        app: zerocool-api
+    spec:
+      containers:
+      - name: threat-core
+        image: yourregistry/zerocool-api:v7.0 # Pulls your compiled Docker image
+        ports:
+        - containerPort: 5000
+        env:
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-infra-secrets
+              key: token
+        volumeMounts:
+        - name: ip-storage
+          mountPath: /app/target_ips.txt
+          subPath: target_ips.txt
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+      volumes:
+      - name: ip-storage
+        persistentVolumeClaim:
+          claimName: zerocool-ip-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zerocool-api-service
+  namespace: zerocool-mesh
+spec:
+  selector:
+    app: zerocool-api
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+  type: ClusterIP
