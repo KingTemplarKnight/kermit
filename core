@@ -1,0 +1,17 @@
+Core Architecture Components for Defending Email InfrastructureWhen organizations build out automated tools to defend their networks against external broadcast streams, they focus on three core platform authentications to filter incoming messages globally:  ┌────────────────────────────────────────────────────────┐
+  │                 Inbound Mail Gateway                   │
+  └───────────────────────────┬────────────────────────────┘
+                              │
+         Evaluates DNS Records against sender IP
+                              │
+  ┌───────────────────────────┼────────────────────────────┐
+  │   SPF (Sender Policy)     │   DKIM (Cryptographic)     │
+  │   - Matches authorized IPs│   - Verifies digital sign  │
+  └───────────────────────────┼────────────────────────────┘
+                              │
+                              ▼
+  ┌────────────────────────────────────────────────────────┐
+  │             DMARC Enforcement Policy                   │
+  │   - Rejects or Quarantines messages that fail checks   │
+  └────────────────────────────────────────────────────────┘
+SPF (Sender Policy Framework): A public DNS TXT record configured by a domain owner that specifies exactly which IP addresses and mail servers are legally authorized to send emails on behalf of that domain.DKIM (DomainKeys Identified Mail): Adds a cryptographic digital signature to the header of every email sent out. Receiving mail servers verify this signature against the domain's public key published in the DNS, proving the message text was not altered in transit.DMARC (Domain-based Message Authentication, Reporting, and Conformance): A comprehensive policy framework that tells a receiving mail server exactly what to do (e.g., monitor, quarantine, or completely reject) if an incoming email fails the SPF or DKIM validation checks.
