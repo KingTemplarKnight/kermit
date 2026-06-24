@@ -1,0 +1,68 @@
+import os
+import logging
+import hashlib
+
+# Configure automated security logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - [AUDIT] - %(levelname)s - %(message)s'
+)
+
+class SecureFileAuditor:
+    """Logs data ingestion baselines to detect unexpected file alterations."""
+    
+    def __init__(self, target_directory: str):
+        self.target_directory = target_directory
+        self.file_registry = {}
+
+    def calculate_baseline_hash(self, file_path: str) -> str:
+        """Generates a SHA-256 hash of a file to establish an immutable identity baseline."""
+        hasher = hashlib.sha256()
+        try:
+            with open(file_path, 'rb') as f:
+                while chunk := f.read(8192):
+                    hasher.update(chunk)
+            return hasher.hexdigest()
+        except IOError as e:
+            logging.error(f"Failed to access file {file_path}: {e}")
+            return ""
+
+    def register_files(self):
+        """Scans the directory and maps the initial clean state of the files."""
+        if not os.path.exists(self.target_directory):
+            logging.error(f"Directory {self.target_directory} does not exist.")
+            return
+
+        for root, _, files in os.walk(self.target_directory):
+            for file in files:
+                full_path = os.path.join(root, file)
+                file_hash = self.calculate_baseline_hash(full_path)
+                if file_hash:
+                    self.file_registry[full_path] = file_hash
+                    logging.info(f"Registered baseline for {file}: {file_hash[:16]}...")
+
+    def audit_directory(self):
+        """Compares current hashes against the registry to flag modifications or additions."""
+        logging.info("Commencing directory integrity check...")
+        for root, _, files in os.walk(self.target_directory):
+            for file in files:
+                full_path = os.path.join(root, file)
+                current_hash = self.calculate_baseline_hash(full_path)
+                
+                if full_path not in self.file_registry:
+                    logging.warning(f"UNREGISTERED FILE DETECTED: {full_path}")
+                elif current_hash != self.file_registry[full_path]:
+                    logging.critical(f"MODIFICATION DETECTED (Integrity Alert): {full_path}")
+
+if __name__ == "__main__":
+    # Example usage targeting a local test directory
+    test_dir = "./project_data"
+    os.makedirs(test_dir, exist_ok=True)
+    
+    # Create a dummy test file
+    with open(os.path.join(test_dir, "config.txt"), "w") as f:
+        f.write("System Baseline Configuration Data")
+        
+    auditor = SecureFileAuditor(test_dir)
+    auditor.register_files()
+    auditor.audit_directory()
