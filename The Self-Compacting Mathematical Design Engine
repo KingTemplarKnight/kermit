@@ -1,0 +1,173 @@
+import sys
+import time
+import random
+import datetime
+import json
+import math
+
+# ANSI Color Codes for scannability
+ORANGE = "\033[38;5;208m"
+GREEN = "\033[92m"
+RED = "\033[91m"
+CYAN = "\033[96m"
+WHITE = "\033[97m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+def display_advanced_banner():
+    print(f"{GREEN}{BOLD}====================================================")
+    print("        COMPACT SELF-REFACTORING DESIGN ENGINE       ")
+    print(f"        SYSTEM STATE: ADVANCED CONVERGENCE ACTIVE   ")
+    print(f"===================================================={RESET}\n")
+
+class CompactFormulaDesigner:
+    def __init__(self, target_value=100.0, pool_size=20):
+        self.target_value = target_value
+        self.pool_size = pool_size
+        self.generation = 0
+        self.log_filename = "compact_evolution_telemetry.json"
+        
+        # Expanded operators to support exponents and roots natively
+        self.allowed_operators = ['+', '-', '*', '/', '**', 'math.sqrt']
+        
+        # Seed initial generation with mixed-length structural components
+        self.population = []
+        for _ in range(self.pool_size):
+            self.population.append(self.generate_random_formula())
+            
+        with open(self.log_filename, "w") as f:
+            f.write("") # Reset local telemetry file
+
+    def generate_random_formula(self):
+        """Generates a random mix of standard values, operators, and functions."""
+        structure_type = random.choice(["standard", "advanced"])
+        if structure_type == "standard":
+            return [str(random.randint(1, 50)), random.choice(['+', '-', '*', '/']), str(random.randint(1, 50))]
+        else:
+            # Generate a root expression format: math.sqrt(Value)
+            return ["math.sqrt(", str(random.randint(1, 1000)), ")"]
+
+    def evaluate_expression(self, formula_tokens):
+        """Assembles tokens into an equation string and executes it safely in a math frame."""
+        expression_string = "".join(formula_tokens)
+        try:
+            # Evaluate the code string with math namespace access
+            result = eval(expression_string, {"math": math})
+            # Prevent overflow errors or imaginary calculations from breaking the engine
+            if isinstance(result, complex) or math.isnan(result) or math.isinf(result):
+                return 0.0, expression_string
+            return float(result), expression_string
+        except Exception:
+            return 0.0, expression_string
+
+    def measure_fitness(self, formula_tokens):
+        """Calculates accuracy while penalizing longer, messy code strings (Brevity Priority)."""
+        result, expr_str = self.evaluate_expression(formula_tokens)
+        distance = abs(self.target_value - result)
+        
+        # 1. Base Accuracy Score calculations
+        if distance == 0:
+            base_accuracy = 2000.0
+        else:
+            base_accuracy = 1.0 / (distance + 0.001)
+            
+        # 2. Parsimony Pressure / Brevity Penalty
+        # Shorter character strings receive less penalty, pushing code towards elegance
+        character_length = len(expr_str)
+        length_penalty = character_length * 0.05
+        
+        total_fitness = base_accuracy - length_penalty
+        return max(total_fitness, 0.001)
+
+    def cross_pollinate(self, parent1, parent2):
+        """Splices code fragments between two separate programs to find ideal configurations."""
+        split1 = random.randint(0, len(parent1))
+        split2 = random.randint(0, len(parent2))
+        child = parent1[:split1] + parent2[split2:]
+        if not child: # Safeguard against empty code slices
+            return self.generate_random_formula()
+        return child
+
+    def apply_stochastic_mutation(self, formula_tokens):
+        """Randomly alters elements inside the string or prunes symbols to reduce size."""
+        mutation_rate = 0.3
+        if random.random() < mutation_rate and len(formula_tokens) > 1:
+            mutation_type = random.choice(["change", "add", "prune"])
+            idx = random.randint(0, len(formula_tokens) - 1)
+            
+            if mutation_type == "change":
+                # Swap out a token for a random new operator or value
+                formula_tokens[idx] = random.choice(['+', '-', '*', '/', '5', '10', '2'])
+            elif mutation_type == "add":
+                # Inject a random node to test complexity expansion
+                formula_tokens.insert(idx, random.choice(['+', '*', '3']))
+            elif mutation_type == "prune" and len(formula_tokens) > 3:
+                # Remove structural dead-weight to optimize length limits
+                formula_tokens.pop(idx)
+                
+        return formula_tokens
+
+    def execute_lifecycle(self):
+        display_advanced_banner()
+        print(f"{CYAN}[*] Ultimate Target Design Metric: Equal exactly {self.target_value}{RESET}")
+        print(f"{CYAN}[*] Active Architectural Constraint: Shortest code string wins.{RESET}\n")
+        time.sleep(1.0)
+        
+        while True:
+            try:
+                self.generation += 1
+                
+                # Benchmark the fitness profile of the entire generation pool
+                scored_pool = [(self.measure_fitness(ind), ind) for ind in self.population]
+                scored_pool.sort(key=lambda x: x, reverse=True)
+                
+                best_score, best_formula = scored_pool
+                actual_value, expr_str = self.evaluate_expression(best_formula)
+                
+                print(f"{WHITE}[Gen {self.generation:03d}]{RESET} Complexity: {YELLOW}{len(expr_str):02d} chars{RESET} | Formula: {CYAN}{expr_str:<25}{RESET} = {GREEN}{actual_value:<10}{RESET}")
+                
+                # Append telemetry maps to a local documentation directory
+                log_entry = {
+                    "generation": self.generation,
+                    "expression": expr_str,
+                    "length": len(expr_str),
+                    "output": actual_value,
+                    "fitness": best_score
+                }
+                with open(self.log_filename, "a") as f:
+                    f.write(json.dumps(log_entry) + "\n")
+
+                # Core operational completion condition: Target hit perfectly
+                if actual_value == self.target_value:
+                    print(f"\n{GREEN}🚀 ADVANCED CONVERGENCE CRITERIA MET NATIVELY!{RESET}")
+                    print(f"{GREEN}[+] Highly Compact Code Generated: {BOLD}{expr_str} = {actual_value}{RESET}")
+                    print(f"{GREEN}[+] Code Length Restricted to: {len(expr_str)} total characters.{RESET}")
+                    print(f"{GREEN}[+] Log parameters exported successfully to '{self.log_filename}'{RESET}")
+                    sys.stdout.write("\a") # Performance complete signal chime
+                    sys.stdout.flush()
+                    break
+                
+                # Filter down to the highest performing 25% of scripts for natural selection breeding
+                survivors = [ind for score, ind in scored_pool[:max(2, int(self.pool_size * 0.25))]]
+                next_generation = list(survivors)
+                
+                while len(next_generation) < self.pool_size:
+                    p1 = random.choice(survivors)
+                    p2 = random.choice(survivors)
+                    child = self.cross_pollinate(p1, p2)
+                    child = self.apply_stochastic_mutation(child)
+                    next_generation.append(child)
+                    
+                self.population = next_generation
+                time.sleep(0.05) # Processing buffer pause
+                
+            except KeyboardInterrupt:
+                print(f"\n\n{RED}[!] PIPELINE INTENDED INTERRUPT: Core disconnected safely. Memory cleared.{RESET}")
+                break
+
+if __name__ == "__main__":
+    # Challenge the engine by giving it a non-integer or complex destination float value
+    target_metric = 13.5
+    
+    designer = CompactFormulaDesigner(target_value=target_metric)
+    designer.execute_lifecycle()
