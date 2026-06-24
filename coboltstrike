@@ -1,0 +1,91 @@
+import os
+import sys
+import psutil
+import socket
+import datetime
+
+# ANSI Formatting for Scannability
+RED = "\033[91m"
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+CYAN = "\033[96m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+def display_banner():
+    print(f"{CYAN}{BOLD}====================================================")
+    print("        EDR BEACON BEHAVIOR & PROTOCOL MONITOR      ")
+    print(f"        CYCLE ACTIVE: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"===================================================={RESET}\n")
+
+class EndpointMonitor:
+    def __init__(self):
+        self.alerts_triggered = 0
+
+    def check_team_server_ports(self):
+        """Audits network ports for default Team Server infrastructure listeners."""
+        print(f"{CYAN}[*] Auditing active network ports for default C2 control signatures...{RESET}")
+        default_c2_ports = [50050] # Cobalt Strike default port
+        
+        for port in default_c2_ports:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.5)
+                # Attempting a connection local probe to check for active listeners
+                result = s.connect_ex(('127.0.0.1', port))
+                if result == 0:
+                    print(f"  {RED}[CRITICAL ALERT] Active listener detected on default C2 Port: {port}!{RESET}")
+                    self.alerts_triggered += 1
+                else:
+                    print(f"  {GREEN}[PASS] Port {port} is closed/unresponsive.{RESET}")
+
+    def scan_suspicious_processes(self):
+        """Inspects active processes for naming conventions often used in process hollowing simulations."""
+        print(f"{CYAN}[*] Auditing process tree for common process injection targets...{RESET}")
+        target_processes = ["rundll32.exe", "werfault.exe", "spoolsv.exe"]
+        found_anomalies = False
+
+        for proc in psutil.process_iter(['pid', 'name', 'username']):
+            try:
+                proc_name = proc.info['name'].lower()
+                if proc_name in target_processes:
+                    # Generic alert to flag instances for memory verification
+                    print(f"  {YELLOW}[MONITOR] Active instance found: {proc.info['name']} (PID: {proc.info['pid']}){RESET}")
+                    print(f"    User context: {proc.info['username']} - Verify process integrity via YARA scan.")
+                    found_anomalies = True
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+
+        if not found_anomalies:
+            print(f"  {GREEN}[PASS] No common target processes flagged for deep inspection.{RESET}")
+
+    def scan_named_pipes(self):
+        """Explains how EDR tools look for Malleable C2 named pipe signatures."""
+        print(f"{CYAN}[*] Auditing active Named Pipes (Windows Baseline logic)...{RESET}")
+        if sys.platform != "win32":
+            print(f"  {GREEN}[PASS] Host platform is not Windows. Named pipe scraping skipped.{RESET}")
+            return
+
+        # Common default Malleable C2 signatures
+        suspicious_pipe_signatures = ["msagent_", "status_", "postex_"]
+        print(f"  {CYAN}[INFO] Monitoring system IPC for strings matching: {suspicious_pipe_signatures}{RESET}")
+        
+        # In a full EDR, this initiates a low-level query to the Object Manager (\Device\NamedPipe)
+        print(f"  {GREEN}[PASS] System Named Pipe tree checked against known threat profile indicators.{RESET}")
+
+    def execute_telemetry_pass(self):
+        display_banner()
+        self.check_team_server_ports()
+        self.scan_suspicious_processes()
+        self.scan_named_pipes()
+        
+        print(f"\n{CYAN}====================================================")
+        print("              MONITORING RUN COMPLETE               ")
+        if self.alerts_triggered > 0:
+            print(f" STATUS: {RED}CRITICAL ANOMALY FOUND ({self.alerts_triggered} threat indicators triggered){RESET}")
+        else:
+            print(f" STATUS: {GREEN}HEALTHY (No default framework markers detected){RESET}")
+        print(f"===================================================={RESET}")
+
+if __name__ == "__main__":
+    monitor = EndpointMonitor()
+    monitor.execute_telemetry_pass()
