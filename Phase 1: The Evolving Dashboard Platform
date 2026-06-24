@@ -1,0 +1,212 @@
+import sys
+import time
+import random
+import datetime
+import json
+import math
+import http.server
+import socketserver
+import threading
+
+# Global storage for the UI to read
+LATEST_TELEMETRY = {
+    "generation": 0,
+    "expression": "Initializing...",
+    "length": 0,
+    "output": 0.0,
+    "target": 0.0,
+    "complete": False
+}
+
+class GeneticMathCore:
+    def __init__(self, target_value=27.5, pool_size=20):
+        self.target_value = target_value
+        self.pool_size = pool_size
+        self.generation = 0
+        self.allowed_operators = ['+', '-', '*', '/', '**', 'math.sqrt']
+        self.population = [self.generate_random_formula() for _ in range(self.pool_size)]
+        LATEST_TELEMETRY["target"] = target_value
+
+    def generate_random_formula(self):
+        if random.choice([True, False]):
+            return [str(random.randint(1, 50)), random.choice(['+', '-', '*', '/']), str(random.randint(1, 50))]
+        return ["math.sqrt(", str(random.randint(1, 1000)), ")"]
+
+    def evaluate_expression(self, tokens):
+        expr_str = "".join(tokens)
+        try:
+            result = eval(expr_str, {"math": math})
+            if isinstance(result, complex) or math.isnan(result) or math.isinf(result):
+                return 0.0, expr_str
+            return float(result), expr_str
+        except Exception:
+            return 0.0, expr_str
+
+    def measure_fitness(self, tokens):
+        result, expr_str = self.evaluate_expression(tokens)
+        distance = abs(self.target_value - result)
+        base = 2000.0 if distance == 0 else 1.0 / (distance + 0.001)
+        return max(base - (len(expr_str) * 0.05), 0.001)
+
+    def evolve(self):
+        global LATEST_TELEMETRY
+        self.generation += 1
+        
+        scored_pool = [(self.measure_fitness(ind), ind) for ind in self.population]
+        scored_pool.sort(key=lambda x: x[0], reverse=True)
+        
+        best_score, best_formula = scored_pool[0]
+        actual_value, expr_str = self.evaluate_expression(best_formula)
+        
+        # Update the live data structure shared with the web server
+        LATEST_TELEMETRY = {
+            "generation": self.generation,
+            "expression": expr_str,
+            "length": len(expr_str),
+            "output": round(actual_value, 4),
+            "target": self.target_value,
+            "complete": (actual_value == self.target_value)
+        }
+        
+        if LATEST_TELEMETRY["complete"]:
+            return True
+            
+        survivors = [ind for score, ind in scored_pool[:max(2, int(self.pool_size * 0.25))]]
+        next_gen = list(survivors)
+        
+        while len(next_gen) < self.pool_size:
+            p1, p2 = random.choice(survivors), random.choice(survivors)
+            child = p1[:random.randint(0, len(p1))] + p2[random.randint(0, len(p2)):]
+            if not child: child = self.generate_random_formula()
+            
+            # Mutation Layer
+            if random.random() < 0.3:
+                idx = random.randint(0, len(child) - 1)
+                child[idx] = random.choice(['+', '-', '*', '/', '2', '5', 'math.sqrt('])
+            next_gen.append(child)
+            
+        self.population = next_gen
+        return False
+
+# --- LIVE DASHBOARD NETWORK SERVER ---
+class DashboardHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/api/telemetry':
+            # Send live engine data as a JSON endpoint
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(LATEST_TELEMETRY).encode())
+        elif self.path == '/' or self.path == '/index.html':
+            # Serve the visualization UI frontend dashboard code
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html')
+            self.end_headers()
+            self.wfile.write(DASHBOARD_UI_HTML.encode())
+        else:
+            self.send_error(404, "File Not Found")
+
+def start_web_server(port=8080):
+    handler = DashboardHandler
+    # Allow instant address reuse during restarts
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("", port), handler) as httpd:
+        print(f"[*] Live Dashboard Server actively broadcasting at: http://localhost:{port}")
+        httpd.serve_forever()
+
+# --- THE EMBEDDED DASHBOARD WEB INTERFACE (HTML/JS) ---
+DASHBOARD_UI_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Kermit Self-Refactoring Core</title>
+    <style>
+        body { background-color: #121212; color: #e0e0e0; font-family: 'Courier New', monospace; padding: 30px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 25px; }
+        .card { background-color: #1e1e1e; border-left: 5px solid #388e3c; padding: 20px; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .card.alert { border-left-color: #f57c00; }
+        h1 { color: #388e3c; font-size: 24px; border-bottom: 2px solid #1e1e1e; padding-bottom: 10px; }
+        .value { font-size: 28px; font-weight: bold; margin-top: 10px; color: #ffffff; }
+        .formula-box { background-color: #1e1e1e; padding: 25px; border-radius: 4px; font-size: 20px; text-align: center; border: 1px solid #333; margin-top: 20px; }
+        .highlight { color: #ffb74d; font-weight: bold; }
+        .status-badge { display: inline-block; padding: 6px 12px; border-radius: 12px; font-size: 14px; font-weight: bold; background-color: #e65100; color: white; }
+        .status-badge.done { background-color: #1b5e20; }
+    </style>
+</head>
+<body>
+    <h1>🐸 KERMIT SELF-INTELLIGENT REFACTORING DASHBOARD</h1>
+    <div id="status-container" style="margin-bottom: 20px;">
+        <span id="status" class="status-badge">OPTIMIZING ALGORITHM...</span>
+    </div>
+    
+    <div class="grid">
+        <div class="card">
+            <div>CURRENT GENERATION</div>
+            <div id="gen" class="value">0</div>
+        </div>
+        <div class="card alert">
+            <div>CODE COMPLEXITY (LENGTH)</div>
+            <div id="len" class="value">0 chars</div>
+        </div>
+        <div class="card">
+            <div>TARGET vs CURRENT OUTPUT</div>
+            <div id="calc" class="value">0.0 / 0.0</div>
+        </div>
+    </div>
+
+    <div class="formula-box">
+        <div>Evolved Code Expression String:</div>
+        <div id="expr" class="highlight" style="margin-top: 15px; font-size: 24px;">Analyzing data structures...</div>
+    </div>
+
+    <script>
+        async function updateDashboard() {
+            try {
+                const response = await fetch('/api/telemetry');
+                const data = await response.json();
+                
+                document.getElementById('gen').innerText = data.generation;
+                document.getElementById('len').innerText = data.length + " chars";
+                document.getElementById('calc').innerText = data.target + " / " + data.output;
+                document.getElementById('expr').innerText = data.expression;
+                
+                if (data.complete) {
+                    const badge = document.getElementById('status');
+                    badge.innerText = "OPTIMIZATION COMPLETE (ELEGANT DESIGN REACHED)";
+                    badge.className = "status-badge done";
+                }
+            } catch (err) {
+                console.error("Telemetry interface connection lost.", err);
+            }
+        }
+        // Poll the server backend api every 100ms for high-frequency dashboard plotting
+        setInterval(updateDashboard, 100);
+    </script>
+</body>
+</html>
+"""
+
+if __name__ == "__main__":
+    # Launch backend infrastructure
+    engine = GeneticMathCore(target_value=31.25)
+    
+    # Fire up the web infrastructure inside an isolated async threat background container
+    server_thread = threading.Thread(target=start_web_server, args=(8080,), daemon=True)
+    server_thread.start()
+    
+    print("[*] Launching underlying engine matrix loop layers...")
+    time.sleep(1.0)
+    
+    while True:
+        try:
+            is_done = engine.evolve()
+            if is_done:
+                print("\n[+] Success criteria broadcasted! Perfect model found.")
+                # Keep the thread wrapper alive so the user can inspect the finalized UI layout
+                while True: time.sleep(1)
+            time.sleep(0.04) # 25 lifecycle cycles executed per second
+        except KeyboardInterrupt:
+            print("\n[-] Server interface shutting down safely.")
+            sys.exit(0)
