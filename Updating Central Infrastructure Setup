@@ -1,0 +1,28 @@
+{
+  "network": {
+    "host": "127.0.0.1",
+    "port": 65433,
+    "packet_size": 94
+  },
+  "crypto": {
+    "key_size": 2048,
+    "hash_algorithm": "SHA256"
+  },
+  "storage": {
+    "source_dir": "./project_live_data",
+    "vault_dir": "./secure_backup_vault",
+    "sandbox_root": "./isolated_app_sandbox"
+  },
+  "monitoring": {
+    "max_backups": 3,
+    "maximum_allowed_sleep": 5.0,
+    "canary_interval": 3.0,
+    "mandatory_tools": ["MsMpEng.exe", "falcon_agent", "secure_audit_daemon"]
+  },
+  "trading": {
+    "default_leverage": "1:1",
+    "order_volume_oil": 100,
+    "order_volume_tech": 50,
+    "max_drawdown_limit": 0.15
+  }
+}
