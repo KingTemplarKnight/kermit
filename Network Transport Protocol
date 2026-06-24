@@ -1,0 +1,36 @@
+import socket
+import logging
+
+class KermitTransportLayer:
+    """Implements safe, encrypted sequential packet assembly over network layers."""
+    SOH = '\x01'
+
+    def __init__(self, config: dict):
+        self.net_cfg = config["network"]
+        self.packet_size = self.net_cfg["packet_size"]
+
+    @staticmethod
+    def _to_kermit_char(value: int) -> str:
+        return chr((value & 63) + 32)
+
+    def generate_packets(self, file_path: str) -> list[str]:
+        """Transforms a file into standard 94-byte structured Kermit frames."""
+        with open(file_path, "rb") as f:
+            safe_ascii_payload = f.read().hex().upper()
+        
+        payload_chunk_size = self.packet_size - 5
+        packet_stream = []
+        sequence_id = 1
+
+        for i in range(0, len(safe_ascii_payload), payload_chunk_size):
+            chunk = safe_ascii_payload[i:i + payload_chunk_size]
+            len_char = self._to_kermit_char(len(chunk) + 3)
+            seq_char = self._to_kermit_char(sequence_id)
+            
+            packet_body = f"{len_char}{seq_char}D{chunk}"
+            checksum_char = self._to_kermit_char(sum(ord(c) for c in packet_body) & 0x3F)
+            
+            packet_stream.append(f"{self.SOH}{packet_body}{checksum_char}")
+            sequence_id = (sequence_id + 1) % 64
+
+        return packet_stream
