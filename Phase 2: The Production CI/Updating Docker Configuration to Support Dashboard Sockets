@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  stream-ingest-engine:
+    build: .
+    container_name: live_stream_ingest_container
+    restart: unless-stopped
+    volumes:
+      - .:/app
+
+  analytics-dashboard:
+    image: python:3.11-slim
+    container_name: live_stream_dashboard_container
+    restart: unless-stopped
+    command: python /app/stream_dashboard.py
+    ports:
+      - "8080:8080" # Maps local port 8080 to container port 8080
+    volumes:
+      - .:/app
+    depends_on:
+      - stream-ingest-engine # Guarantees ingestion container starts first
