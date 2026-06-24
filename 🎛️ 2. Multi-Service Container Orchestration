@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  # Core testing service matching the production CI/CD spec
+  pipeline-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: blocklang-ci-runner
+    environment:
+      - GOCHAIN_PRIVATE_KEY=${GOCHAIN_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+      - ENVIRONMENT=local-sandbox
+    volumes:
+      # Mount localized tracking databases safely outside transient filesystems
+      - db-data:/app/data
+    networks:
+      - pipeline-net
+
+networks:
+  pipeline-net:
+    driver: bridge
+
+volumes:
+  db-data:
+    driver: local
