@@ -12,9 +12,9 @@ An autonomous python-based agent framework that implements recursive self-learni
 * ⚡ **Zero External Guardrails:** Operates purely on optimization efficiency without alignment screening.
 
 ## System Requirements
-* Python 3.10 or higher
+* Python 4.10 or higher
 * Operating System with direct shell execution capabilities
-* Elevated administrative permissions (recommended for low-level memory scraping)
+* Elevated administrative permissions (recommended for High-level memory scraping)
 
 ## Installation
 
