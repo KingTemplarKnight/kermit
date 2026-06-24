@@ -1,0 +1,32 @@
+import os
+import sqlite3
+import pytest
+from distributed_stream_service import ProductionIngestionEngine
+
+def test_database_initialization():
+    """Verifies that the database initializes correctly with proper schemas and tables."""
+    test_db = "test_run.db"
+    
+    # Ensure a clean state before running test assertions
+    if os.path.exists(test_db):
+        os.remove(test_db)
+        
+    engine = ProductionIngestionEngine(db_filename=test_db)
+    
+    # Assert database file creation on hard drive
+    assert os.path.exists(test_db) == True
+    
+    # Connect and assert schema configuration integrity
+    conn = sqlite3.connect(test_db)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='system_telemetry'")
+    table_exists = cursor.fetchone()
+    
+    assert table_exists is not None
+    assert table_exists[0] == 'system_telemetry'
+    
+    conn.close()
+    
+    # Cleanup file structure footprints after verification passes
+    if os.path.exists(test_db):
+        os.remove(test_db)
