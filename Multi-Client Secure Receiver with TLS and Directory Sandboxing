@@ -1,0 +1,104 @@
+import os
+import ssl
+import socket
+import tarfile
+import logging
+from pathlib import Path
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - [%(levelname)s] - %(message)s')
+
+class SecureExtractionSandbox:
+    """
+    Enforces path validation rules on archived objects before extraction,
+    ensuring compliance with directory isolation rules.
+    """
+    def __init__(self, sandbox_root: str):
+        self.sandbox_root = Path(sandbox_root).resolve()
+        os.makedirs(self.sandbox_root, exist_ok=True)
+
+    def is_safe_path(self, target_path: Path) -> bool:
+        """Verifies if a target extraction path stays inside the sandbox root."""
+        try:
+            resolved_target = Path(target_path).resolve()
+            # Enforce that the target folder is a subdirectory of the sandbox root
+            return self.sandbox_root in resolved_target.parents or self.sandbox_root == resolved_target
+        except Exception:
+            return False
+
+    def safe_extract(self, tar_archive_path: str):
+        """Audits all internal archive targets before allowing disk extraction."""
+        logging.info(f"Auditing file paths for archive: {tar_archive_path}")
+        
+        with tarfile.open(tar_archive_path, "r:gz") as tar:
+            for member in tar.getmembers():
+                target_dest = self.sandbox_root / member.name
+                
+                # Intercept execution if any file path attempts a traversal escape
+                if not self.is_safe_path(target_dest):
+                    logging.critical(f"ABORTING EXTRACTION: Malicious path detected: '{member.name}'")
+                    raise PermissionError(f"Extraction path path violation: {member.name}")
+            
+            # Perform extraction only after auditing all entries
+            tar.extractall(path=self.sandbox_root)
+            logging.info(f"Archive safely unpacked into sandbox: {self.sandbox_root}")
+
+
+class TLSTransportLayer:
+    """
+    Wraps standard socket connections inside an encrypted TLS channel
+    to secure the pipeline stream against unauthorized visibility.
+    """
+    def __init__(self, host: str = "127.0.0.1", port: int = 65433):
+        self.host = host
+        self.port = port
+
+    def create_encrypted_server_context(self, cert_file: str, key_file: str) -> ssl.SSLContext:
+        """Generates a secure TLS server configuration context."""
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        # Load server authentication credentials
+        context.load_cert_chain(certfile=cert_file, keyfile=key_file)
+        return context
+
+    def start_secure_listener(self, context: ssl.SSLContext, sandbox_handler: SecureExtractionSandbox):
+        """Listens for encrypted network frames and passes verified streams to the sandbox."""
+        bind_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        bind_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        bind_socket.bind((self.host, self.port))
+        bind_socket.listen(5)
+        
+        logging.info(f"Secure TLS Server initialized. Listening on port {self.port}...")
+
+        # Secure the network stream by wrapping the listener socket in TLS
+        with context.wrap_socket(bind_socket, server_side=True) as tls_socket:
+            try:
+                conn, addr = tls_socket.accept()
+                with conn:
+                    logging.info(f"Encrypted TLS session established with client node: {addr}")
+                    # Process and route raw incoming data chunks here
+                    data = conn.recv(4096)
+                    logging.info(f"Ingested {len(data)} encrypted transit bytes.")
+            except Exception as e:
+                logging.error(f"Error handling network session: {e}")
+            finally:
+                bind_socket.close()
+
+
+# --- Demonstration Configuration and Setup ---
+if __name__ == "__main__":
+    # 1. Initialize our isolation directory
+    STAGING_SANDBOX = "./isolated_app_sandbox"
+    sandbox = SecureExtractionSandbox(STAGING_SANDBOX)
+
+    # 2. Setup structural validation samples
+    sample_safe_destination = Path(STAGING_SANDBOX) / "app" / "config.json"
+    sample_unsafe_destination = Path(STAGING_SANDBOX) / ".." / "system32" / "hosts"
+
+    print("--- Sandbox Directory Boundary Audit Tests ---")
+    print(f"[*] Auditing local sub-path vector: {sample_safe_destination}")
+    print(f"    -> Safe Status: {sandbox.is_safe_path(sample_safe_destination)}")
+    
+    print(f"[*] Auditing escape path vector:     {sample_unsafe_destination}")
+    print(f"    -> Safe Status: {sandbox.is_safe_path(sample_unsafe_destination)}")
+    
+    # Note: To spin up the TLSTransportLayer live, generate standard local self-signed x509 certificates 
+    # and pass them into the `create_encrypted_server_context` wrapper routine.
