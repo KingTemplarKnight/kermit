@@ -1,0 +1,2 @@
+kubectl create namespace zerocool-mesh
+kubectl create secret generic github-infra-secrets --from-literal=token=$GITHUB_TOKEN -n zerocool-mesh
