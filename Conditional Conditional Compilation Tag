@@ -1,0 +1,9 @@
+//go:build blocklang_strict
+
+package main
+
+import "fmt"
+
+func checkBuildTags() {
+	fmt.Println("🔒 [SECURITY] Strict type verification rules applied via build-tags matrix.")
+}
