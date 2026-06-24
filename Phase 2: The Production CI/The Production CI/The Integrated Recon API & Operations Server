@@ -1,0 +1,156 @@
+import sys
+import time
+import json
+import os
+import http.server
+import socketserver
+import datetime
+
+LOG_FILENAME = "auth_stream.log"
+THREAT_FILENAME = "detected_threats.json"
+
+class OpsMetricsEngine:
+    @staticmethod
+    def get_live_telemetry():
+        """Performs live reconnaissance on active log files to compile security metrics."""
+        total_logs_scanned = 0
+        active_users = set()
+        
+        # 1. Scan the raw authentication log stream for volume metrics
+        if os.path.exists(LOG_FILENAME):
+            try:
+                with open(LOG_FILENAME, "r") as f:
+                    for line in f:
+                        if line.strip() and "|" in line:
+                            total_logs_scanned += 1
+                            parts = line.split("|")
+                            if len(parts) > 1:
+                                active_users.add(parts[1].strip())
+            except Exception:
+                pass
+
+        # 2. Extract resolved threat alerts out of physical JSON storage
+        alerts_list = []
+        if os.path.exists(THREAT_FILENAME):
+            try:
+                with open(THREAT_FILENAME, "r") as f:
+                    alerts_list = json.load(f)
+            except Exception:
+                pass
+
+        return {
+            "status": "operational",
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "total_logs_scanned": total_logs_scanned,
+            "unique_users_tracked": len(active_users),
+            "total_threats_blocked": len(alerts_list),
+            "recent_alerts": alerts_list[-4:] # Pull the latest 4 anomalies
+        }
+
+# --- MULTI-THREADED NETWORK ROUTING INTERFACE ---
+class OpsDashboardHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/api/ops_metrics':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            payload = OpsMetricsEngine.get_live_telemetry()
+            self.wfile.write(json.dumps(payload).encode('utf-8'))
+        elif self.path == '/' or self.path == '/index.html':
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html')
+            self.end_headers()
+            self.wfile.write(OPS_DASHBOARD_HTML.encode('utf-8'))
+        else:
+            self.send_error(404, "Endpoint Unmapped")
+
+def start_ops_server(port=8080):
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("", port), OpsDashboardHandler) as httpd:
+        print(f"[*] Live Operations Dashboard actively broadcasting at: http://localhost:{port}")
+        httpd.serve_forever()
+
+# --- SECURITY OPERATIONS CENTER OVERLAY INTERFACE (HTML/JS) ---
+OPS_DASHBOARD_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Security Operations Command</title>
+    <style>
+        body { background-color: #06090c; color: #9faec1; font-family: 'Consolas', monospace; padding: 35px; margin: 0; }
+        h1 { color: #e53935; font-size: 24px; font-weight: bold; margin-bottom: 25px; border-bottom: 2px solid #1a242d; padding-bottom: 15px; text-transform: uppercase; letter-spacing: 2px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 25px; }
+        .card { background-color: #0f141c; padding: 25px; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.6); border-top: 4px solid #00b0ff; border-left: 1px solid #1a242d; }
+        .card.threat { border-top-color: #e53935; }
+        .value { font-size: 38px; font-weight: 700; color: #ffffff; margin-top: 15px; }
+        .alert-box { background-color: #0f141c; padding: 25px; border-radius: 4px; border: 1px solid #e53935; margin-top: 25px; }
+        .alert-entry { border-bottom: 1px solid #222e3b; padding: 12px 0; font-size: 14px; }
+        .alert-entry:last-child { border-bottom: none; }
+        .highlight-red { color: #ff5252; font-weight: bold; }
+        .highlight-yellow { color: #ffd740; font-weight: bold; }
+        .status-footer { font-size: 12px; color: #546e7a; margin-top: 20px; text-align: right; }
+    </style>
+</head>
+<body>
+    <h1>🛰️ IDENTITY RECONNAISSANCE & SECURITY OPERATIONS COMMAND</h1>
+    
+    <div class="grid">
+        <div class="card">
+            <div>TOTAL RECON LOGS SCANNED</div>
+            <div id="logs-scanned" class="value">0</div>
+        </div>
+        <div class="card">
+            <div>UNIQUE USER ENTITIES MONITORED</div>
+            <div id="users-tracked" class="value">0</div>
+        </div>
+        <div class="card threat">
+            <div>THREAT ANOMALIES BLOCKED</div>
+            <div id="threats-blocked" class="value" style="color: #ff5252;">0</div>
+        </div>
+    </div>
+
+    <div class="alert-box">
+        <div style="color: #ff5252; font-weight: bold; font-size: 16px; border-bottom: 1px solid #222e3b; padding-bottom: 10px;">LIVE RESPONSE THREAT AUDIT FEED</div>
+        <div id="alert-feed" style="margin-top: 10px;">Awaiting incoming network anomalies...</div>
+    </div>
+    
+    <div id="status-time" class="status-footer">SYSTEM LOG LINK STATUS: UNKNOWN</div>
+
+    <script>
+        async function fetchOperationsTelemetry() {
+            try {
+                const response = await fetch('/api/ops_metrics');
+                const data = await response.json();
+                
+                document.getElementById('logs-scanned').innerText = data.total_logs_scanned;
+                document.getElementById('users-tracked').innerText = data.unique_users_tracked;
+                document.getElementById('threats-blocked').innerText = data.total_threats_blocked;
+                document.getElementById('status-time').innerText = "LAST DATA SYNC: " + data.timestamp + " // CONSOLE: ONLINE";
+                
+                let feedHtml = "";
+                if (data.recent_alerts.length === 0) {
+                    feedHtml = "<div style='color: #4caf50;'>[PASS] No active threat vectors or policy violations detected on the network.</div>";
+                } else {
+                    data.recent_alerts.forEach(alert => {
+                        const styleClass = alert.anomaly === "IMPOSSIBLE_TRAVEL" ? "highlight-red" : "highlight-yellow";
+                        feedHtml += `<div class='alert-entry'>
+                            [${alert.timestamp}] <span class='${styleClass}'>[${alert.anomaly}]</span> 
+                            User: <strong>${alert.user}</strong> | Details: ${alert.details}
+                        </div>`;
+                    });
+                }
+                document.getElementById('alert-feed').innerHTML = feedHtml;
+                
+            } catch (err) { console.error("Operations sync tunnel broken.", err); }
+        }
+        // Poll the reconnaissance API parameters every 400ms for fast feedback loops
+        setInterval(fetchOperationsTelemetry, 400);
+    </script>
+</body>
+</html>
+"""
+
+if __name__ == "__main__":
+    start_ops_server()
