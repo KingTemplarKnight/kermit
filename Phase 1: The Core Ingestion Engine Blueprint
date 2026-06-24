@@ -1,0 +1,83 @@
+import sys
+import time
+import datetime
+import json
+import random
+import logging
+
+# Configure standardized structural logging output formats
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] (%(threadName)s) %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+
+class DataIngestionEngine:
+    def __init__(self, service_name="ZeroCool-Ingress-Node"):
+        self.service_name = service_name
+        self.is_running = False
+        self.processed_records_count = 0
+        logging.info(f"Initializing distributed engine architecture: [{self.service_name}]")
+
+    def run_health_check(self):
+        """Validates baseline platform connectivity constraints before starting pipelines."""
+        logging.info("[*] Commencing pre-flight system telemetry audits...")
+        # Simulate testing system resources and disk allocation pools
+        time.sleep(0.4)
+        logging.info("[+] Core infrastructure loops validated. Hardware profiles: STABLE.")
+        return True
+
+    def parse_inbound_stream_payload(self):
+        """Simulates ingestion of high-concurrency heterogeneous message bundles."""
+        mock_data_types = ["METRIC_LOG", "NETWORK_TRACE", "USER_EVENT", "SECURITY_HEURISTIC"]
+        self.processed_records_count += 1
+        
+        return {
+            "record_id": 10000 + self.processed_records_count,
+            "timestamp": str(datetime.datetime.now()),
+            "payload_type": random.choice(mock_data_types),
+            "payload_size_bytes": random.randint(128, 4096),
+            "node_origin": self.service_name
+        }
+
+    def start_ingestion_loop(self):
+        """Starts the persistent, infinite background ingestion data pipeline loop."""
+        if not self.run_health_check():
+            logging.error("[-] System initialization failed. Halting startup vectors.")
+            return
+
+        self.is_running = True
+        logging.info(f"[!] Engine successfully bound to network interface socket. Ingestion running.")
+        print("\nPress Ctrl+C to safely suspend the runtime processing core.\n")
+        time.sleep(1.0)
+
+        while self.is_running:
+            try:
+                # Simulate high-frequency asynchronous packet extraction
+                record = self.parse_inbound_stream_payload()
+                
+                # Filter metrics output to keep console readable
+                if self.processed_records_count % 5 == 0:
+                    logging.info(
+                        f"Ingested Record #{record['record_id']} | Type: {record['payload_type']} | Size: {record['payload_size_bytes']}B"
+                    )
+                
+                time.sleep(0.2) # 5 cycles executed per second under normal load parameters
+                
+            except KeyboardInterrupt:
+                logging.warning("[!] Interruption command captured. Initiating safe shutdown sequences...")
+                self.is_running = False
+                break
+
+        self.shutdown_cleanup()
+
+    def shutdown_cleanup(self):
+        """Safely flushes memory buffers and closes database connections on exit."""
+        logging.info("[*] Flushing local memory register caches to disk...")
+        time.sleep(0.5)
+        logging.info(f"[+] Shutdown sequence finished. Total records processed: {self.processed_records_count}")
+        logging.info(f"Status: ENGINE_OFFLINE")
+
+if __name__ == "__main__":
+    engine = DataIngestionEngine()
+    engine.start_ingestion_loop()
