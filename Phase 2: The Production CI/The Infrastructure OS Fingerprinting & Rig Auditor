@@ -1,0 +1,173 @@
+import sys
+import time
+import socket
+import threading
+import datetime
+import json
+
+# ANSI Color Code Engine
+GREEN = "\033[92m"
+RED = "\033[91m"
+YELLOW = "\033[93m"
+CYAN = "\033[96m"
+WHITE = "\033[97m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+def display_engine_banner():
+    print(f"{CYAN}{BOLD}====================================================")
+    print("      INFRASTRUCTURE SCANNER & OS FINGERPRINTER     ")
+    print(f"      TELEMETRY MODE: HARDWARE PROBING ACTIVE      ")
+    print(f"===================================================={RESET}\n")
+
+class AdvancedHardwareScanner:
+    def __init__(self, subnet_prefix="192.168.1"):
+        self.subnet_prefix = subnet_prefix
+        self.inventory_manifest = []
+        self.output_filename = "hardware_fingerprint_manifest.json"
+        
+        # Diagnostic port profiles mapped to specific target services
+        self.monitored_ports = [22, 80, 443, 3389, 4028, 3333]
+
+    def finger_print_operating_system(self, host_ip, open_ports, banner_data):
+        """Heuristic rule-engine to infer OS footprint profiles based on banner strings."""
+        banner_lower = banner_data.lower()
+        
+        # 1. Evaluate SSH or HTTP banner metadata signatures
+        if "openssh" in banner_lower:
+            if "ubuntu" in banner_lower: return "Linux (Ubuntu Distribution)"
+            if "debian" in banner_lower: return "Linux (Debian Distribution)"
+            return "Generic Linux Operating System"
+        
+        if "microsoft-iis" in banner_lower or 3389 in open_ports:
+            return "Windows Server Environment"
+            
+        # 2. Check for characteristic crypto mining rig OS structures (e.g., HiveOS, Antminer)
+        if "cgminer" in banner_lower or "bmminer" in banner_lower or 4028 in open_ports:
+            return "Embedded Linux (ASIC Controller / HiveOS / Antminer Linux Stack)"
+            
+        if 3333 in open_ports or "stratum" in banner_lower:
+            return "Linux / Windows (GPU Mining Rig OS Host)"
+            
+        return "Unknown OS / Hardware Appliance"
+
+    def query_cgminer_api(self, host_ip, port=4028):
+        """Attempts interaction with standard ASIC miner sockets using JSON-RPC API protocols."""
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.3)
+                s.connect((host_ip, port))
+                # Dispatching standard API request command to grab hardware stats
+                s.sendall(json.dumps({"command": "summary"}).encode('utf-8'))
+                response = s.recv(1024).decode('utf-8', errors='ignore')
+                if "STATUS" in response:
+                    return f"CGMiner API Response: {response[:80]}..."
+        except Exception:
+            pass
+        return ""
+
+    def grab_service_banner(self, host_ip, port):
+        """Exposes open sockets to trigger diagnostic banner reads safely."""
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.4)
+                s.connect((host_ip, port))
+                
+                # If checking HTTP web interfaces, dispatch a standard mock payload head request
+                if port in [80, 443]:
+                    s.sendall(b"HEAD / HTTP/1.0\r\n\r\n")
+                    
+                banner = s.recv(512).decode('utf-8', errors='ignore').strip()
+                if banner:
+                    return banner
+        except Exception:
+            pass
+        return ""
+
+    def audit_target_device(self, host_ip):
+        """Sweeps specific network node interfaces to index active hardware metrics."""
+        open_ports = []
+        collected_banners = []
+        
+        for port in self.monitored_ports:
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(0.2)
+                    result = s.connect_ex((host_ip, port))
+                    if result == 0:
+                        open_ports.append(port)
+                        # Attempt to extract low-level service banners
+                        banner = self.grab_service_banner(host_ip, port)
+                        if banner:
+                            collected_banners.append(f"Port {port}: {banner}")
+                        
+                        # If port 4028 is open, attempt specialized ASIC status reads
+                        if port == 4028:
+                            api_data = self.query_cgminer_api(host_ip)
+                            if api_data: collected_banners.append(api_data)
+            except Exception:
+                continue
+
+        if open_ports:
+            # Join all discovered banner strings to pass into the fingerprint compiler
+            combined_banners = " | ".join(collected_banners)
+            inferred_os = self.finger_print_operating_system(host_ip, open_ports, combined_banners)
+            
+            # Formulate the target asset classification designation
+            classification = "UNCLASSIFIED_HARDWARE_NODE"
+            if any(p in open_ports for p in [3333, 4028]):
+                classification = "CRYPTO_MINING_RIG"
+            elif any(p in open_ports for p in [22, 3389]):
+                classification = "ENTERPRISE_DATA_SERVER"
+
+            device_profile = {
+                "ip_address": host_ip,
+                "hardware_classification": classification,
+                "fingerprinted_os": inferred_os,
+                "active_ports": open_ports,
+                "scraped_metadata": collected_banners,
+                "timestamp": str(datetime.datetime.now())
+            }
+            
+            print(f"  {GREEN}[+] ASSET DISCOVERED: {host_ip}{RESET}")
+            print(f"      Hardware Class: {YELLOW}{classification}{RESET}")
+            print(f"      Fingerprinted OS: {WHITE}{inferred_os}{RESET}")
+            print(f"      Active Ports:   {open_ports}")
+            print("-" * 60)
+            
+            self.inventory_manifest.append(device_profile)
+
+    def execute_network_sweep(self):
+        display_engine_banner()
+        print(f"{ORANGE}[*] Initiating multi-threaded infrastructure sweep: {self.subnet_prefix}.1 -> .254{RESET}\n")
+        time.sleep(0.5)
+        
+        threads = []
+        for suffix in range(1, 255):
+            target_ip = f"{self.subnet_prefix}.{suffix}"
+            t = threading.Thread(target=self.audit_target_device, args=(target_ip,))
+            threads.append(t)
+            t.start()
+            
+        for t in threads:
+            t.join()
+
+        # Save the structured hardware inventory back onto physical storage drive media
+        with open(self.output_filename, "w") as f:
+            json.dump(self.inventory_manifest, f, indent=4)
+            
+        print(f"\n{CYAN}====================================================")
+        print("          INFRASTRUCTURE SWEEP COMPLETE              ")
+        print(f"  Total Network Enclaves Inventory-Mapped: {len(self.inventory_manifest)}")
+        print(f"  Database file generated successfully: ./{self.output_filename}")
+        print(f"===================================================={RESET}")
+        sys.stdout.write("\a")
+        sys.stdout.flush()
+
+if __name__ == "__main__":
+    ORANGE = "\033[38;5;208m"
+    # Change this subnet prefix string to match your home or office local network adapter range
+    local_subnet_prefix = "192.168.1"
+    
+    scanner = AdvancedHardwareScanner(subnet_prefix=local_subnet_prefix)
+    scanner.execute_network_sweep()
