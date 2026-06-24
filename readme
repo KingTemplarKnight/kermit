@@ -1,0 +1,10 @@
+This unified setup packages our secure data transport pipeline and zero-trust supply chain defenses into an enterprise-grade repository structure.kermit-secure-core/
+├── config/
+│   └── config.json
+├── src/
+│   ├── __init__.py
+│   ├── transport.py
+│   ├── crypto.py
+│   └── monitors.py
+├── main.py
+└── README.md
