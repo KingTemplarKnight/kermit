@@ -1,0 +1,43 @@
+# =========================================================
+#  ZEROCOOLAPI PLATFORM FUNDING & SPONSORSHIP MATRIX
+#  LOCATION: .github/funding.yml
+# =========================================================
+
+# Replace with up to 4 GitHub Sponsors-enabled usernames
+github: [zerocoolapi, kermitmesh]
+
+# Replace with a single Patreon username
+patreon: zerocoolapi
+
+# Replace with a single Open Collective username
+open_collective: zerocool
+
+# Replace with a single Ko-fi username
+ko_fi: zerocoolapi
+
+# Replace with a single Tidelift platform-name/package-name
+tidelift: pypi/zerocoolapi-core
+
+# Replace with a single Community Bridge project-name
+community_bridge: zerocool-mesh
+
+# Replace with a single Liberapay username
+liberapay: zerocoolapi
+
+# Replace with a single IssueHunt username
+issuehunt: zerocoolapi
+
+# Replace with a single LFX Crowdfunding project-name
+lfx_crowdfunding: zerocool-mesh
+
+# Replace with a single Polar username
+polar: zerocoolapi
+
+# Replace with a single Buy Me a Coffee username
+buy_me_a_coffee: zerocoolapi
+
+# Replace with a single thanks.dev username
+thanks_dev: zerocoolapi
+
+# Replace with up to 4 custom sponsorship URLs
+custom: ['https://zerocool.local', 'https://swamp-mesh.io']
