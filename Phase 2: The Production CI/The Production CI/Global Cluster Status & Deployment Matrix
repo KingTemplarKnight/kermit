@@ -1,0 +1,24 @@
+# =========================================================
+#  ZEROCOOL SECOPS CLUSTER AUTO-SCALING POLICY
+#  LOCATION: k8s_hpa_policy.yaml
+# =========================================================
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: zerocool-threat-autoscaler
+  namespace: zerocool-secops
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: zerocool-threat-core-deployment
+  minReplicas: 3   # Minimum floor to preserve fault-tolerant constraints
+  maxReplicas: 10  # Maximum horizontal scaling threshold
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 75
