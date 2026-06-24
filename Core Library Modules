@@ -1,0 +1,53 @@
+import os
+import tarfile
+import logging
+from pathlib import Path
+from datetime import datetime
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import hashes
+
+class CryptoStorageManager:
+    """Manages secure backup compression, RSA signatures, and path sandboxing."""
+    def __init__(self, config: dict):
+        self.cfg = config["storage"]
+        self.crypto_cfg = config["crypto"]
+        self.mon_cfg = config["monitoring"]
+        
+        os.makedirs(self.cfg["vault_dir"], exist_ok=True)
+        os.makedirs(self.cfg["sandbox_root"], exist_ok=True)
+        
+        self.private_key = rsa.generate_private_key(
+            public_exponent=65537, 
+            key_size=self.crypto_cfg["key_size"]
+        )
+        self.public_key = self.private_key.public_key()
+
+    def generate_signed_backup(self) -> tuple[str, bytes]:
+        """Archives source directory and signs the tarball with an RSA signature."""
+        if not os.path.exists(self.cfg["source_dir"]) or not os.listdir(self.cfg["source_dir"]):
+            raise FileNotFoundError("Source directory is empty or missing.")
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        archive_path = os.path.join(self.cfg["vault_dir"], f"backup_{timestamp}.tar.gz")
+
+        with tarfile.open(archive_path, "w:gz") as tar:
+            tar.add(self.cfg["source_dir"], arcname=os.path.basename(self.cfg["source_dir"]))
+        
+        with open(archive_path, "rb") as f:
+            archive_bytes = f.read()
+
+        signature = self.private_key.sign(
+            archive_bytes,
+            padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
+            hashes.SHA256()
+        )
+        return archive_path, signature
+
+    def is_safe_path(self, target_path: Path) -> bool:
+        """Enforces directory sandboxing boundaries to block path traversals."""
+        sandbox_root = Path(self.cfg["sandbox_root"]).resolve()
+        try:
+            resolved_target = Path(target_path).resolve()
+            return sandbox_root in resolved_target.parents or sandbox_root == resolved_target
+        except Exception:
+            return False
