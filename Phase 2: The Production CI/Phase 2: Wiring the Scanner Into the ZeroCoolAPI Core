@@ -1,0 +1,12 @@
+    def batch_process_local_file_ips(self):
+        """Reads the local network scanner inventory manifest and merges hardware traces into the active API stream."""
+        scanner_file = "hardware_fingerprint_manifest.json"
+        
+        # If the local asset scanner has run, pull the real home/office internal infrastructure logs
+        if os.path.exists(scanner_file):
+            print(f"  {CYAN}[API DATA BRIDGE]{RESET} Merging hardware network tracking database into API layout...")
+            with open(scanner_file, "r") as f:
+                return json.load(f)
+                
+        # Default fallback route if the network discovery scanner hasn't generated metrics yet
+        return [{"status": "awaiting_local_subnet_sweep_execution"}]
