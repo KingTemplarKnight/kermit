@@ -1,0 +1,122 @@
+import os
+import sys
+import time
+import datetime
+import json
+import urllib.request
+import urllib.error
+
+# ANSI Color Formatting for console scannability
+GREEN = "\033[92m"
+RED = "\033[91m"
+CYAN = "\033[96m"
+WHITE = "\033[97m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+def show_header():
+    print(f"{CYAN}{BOLD}====================================================")
+    print("        LIVE GITHUB REPOSITORY METRICS ENGINE       ")
+    print(f"        TIMESTAMP: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"===================================================={RESET}\n")
+
+class GitHubRealTestEngine:
+    def __init__(self, token=None):
+        # Fallback to local system environment variables if token isn't passed directly
+        self.token = token or os.environ.get("GITHUB_TOKEN")
+        self.output_filename = "github_real_results.json"
+        
+    def query_live_github_api(self, search_query):
+        """Connects directly to the live GitHub REST API to pull public repo data."""
+        print(f"{CYAN}[*] Contacting live API nodes... Querying for: '{search_query}'{RESET}")
+        
+        # URL encode the search string safely
+        encoded_query = urllib.parse.quote(search_query)
+        url = f"https://github.com{encoded_query}&per_page=5"
+        
+        # Build the network payload request headers
+        req = urllib.request.Request(url)
+        req.add_header('User-Agent', 'Kermit-Testing-Core-v5.0')
+        req.add_header('Accept', 'application/vnd.github.v3+json')
+        
+        if self.token:
+            print(f"  {GREEN}[+] Token authentication wrapper injected.{RESET}")
+            req.add_header('Authorization', f'token {self.token}')
+        else:
+            print(f"  {WHITE}[!] Running unauthenticated. Strict rate limits may apply.{RESET}")
+            
+        try:
+            with urllib.request.urlopen(req) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode('utf-8'))
+                    return data.get('items', [])
+        except urllib.error.HTTPError as e:
+            print(f"  {RED}[-] HTTP Error encountered: {e.code} - {e.reason}{RESET}")
+            if e.code == 403:
+                print(f"  {RED}[-] Rate limit exceeded or access denied. Please supply a valid GitHub Token.{RESET}")
+            return []
+        except Exception as e:
+            print(f"  {RED}[-] Network connection anomaly: {str(e)}{RESET}")
+            return []
+
+    def run_live_test(self, search_term):
+        show_header()
+        
+        # Step 1: Ingest live metadata straight from GitHub's infrastructure
+        raw_results = self.query_live_github_api(search_term)
+        
+        if not raw_results:
+            print(f"\n{RED}[-] Core testing aborted: Zero records returned from live API endpoint.{RESET}")
+            return
+            
+        print(f"\n{GREEN}[+] Data payload received successfully! Processing {len(raw_results)} targets...{RESET}\n")
+        
+        compiled_test_records = []
+        
+        # Step 2: Categorize and map elements out of the real payload packets
+        for index, repo in enumerate(raw_results, 1):
+            name = repo.get("full_name", "Unknown/Repo")
+            desc = repo.get("description", "") or "No description provided."
+            stars = repo.get("stargazers_count", 0)
+            url = repo.get("html_url", "")
+            
+            print(f"{WHITE}[Target #{index}]{RESET} Evaluation Profile: {CYAN}{name}{RESET}")
+            print(f"  Description: {desc[:60]}...")
+            print(f"  Metrics: ⭐ {stars} stars | Link: {url}")
+            
+            # Simulated rule evaluation matching our older compiler patterns
+            # Flagging if the repository contains high configuration indicators or network components
+            is_complex = "network" in desc.lower() or "bot" in desc.lower() or stars > 100
+            status_tag = "HIGH_COMPLEXITY" if is_complex else "STANDARD_BASELINE"
+            
+            record_entry = {
+                "repo_name": name,
+                "url": url,
+                "stars": stars,
+                "classification_verdict": status_tag,
+                "evaluated_at": str(datetime.datetime.now())
+            }
+            compiled_test_records.append(record_entry)
+            print(f"  Classification Verdict Matrix -> {GREEN if is_complex else WHITE}{status_tag}{RESET}\n")
+            time.sleep(0.2) # Throttling pause
+            
+        # Step 3: Permanently log the real data to physical storage
+        with open(self.output_filename, "w") as f:
+            json.dump(compiled_test_records, f, indent=4)
+            
+        print(f"{CYAN}====================================================")
+        print("              LIVE FILE LOG EXPORT COMPLETE         ")
+        print(f"  Results saved permanently to local JSON: './{self.output_filename}'")
+        print(f"===================================================={RESET}")
+        sys.stdout.write("\a") # Sound system notification chime
+        sys.stdout.flush()
+
+if __name__ == "__main__":
+    # OPTIONAL: Replace None with your actual alphanumeric string token "ghp_xxxx"
+    MY_GITHUB_TOKEN = None 
+    
+    # Define a real term to look up on GitHub (e.g., "flipper zero", "kermit logging", "python bot")
+    target_search_keyword = "flipper zero"
+    
+    tester = GitHubRealTestEngine(token=MY_GITHUB_TOKEN)
+    tester.run_live_test(target_search_keyword)
