@@ -1,0 +1,16 @@
+{
+  "name": "gochain-contract-deployer",
+  "version": "1.0.0",
+  "description": "Automated pipeline for hosting BuildLogger on GoChain networks",
+  "main": "index.js",
+  "scripts": {
+    "compile": "npx hardhat compile",
+    "deploy:testnet": "npx hardhat run scripts/deploy.js --network gochainTestnet",
+    "deploy:mainnet": "npx hardhat run scripts/deploy.js --network gochainMainnet"
+  },
+  "dependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.22.2"
+  }
+}
