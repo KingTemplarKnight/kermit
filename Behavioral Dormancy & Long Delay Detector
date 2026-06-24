@@ -1,0 +1,56 @@
+import time
+import logging
+from typing import Callable, Any
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - [%(levelname)s] - %(message)s')
+
+class DormancyAnalysisGuard:
+    """Audits application runtime patterns to catch extended sleep pauses meant to evade sandboxes."""
+    
+    def __init__(self, maximum_allowed_sleep: float = 10.0):
+        # In a real enterprise sandbox, this threshold might be set to prevent prolonged dormancy
+        self.maximum_allowed_sleep = maximum_allowed_sleep
+
+    def profile_execution_delay(self, executable_function: Callable[..., Any], *args, **kwargs) -> Any:
+        """Executes a function, tracks the elapsed time, and raises alerts if unusual delays occur."""
+        logging.info(f"Commencing sandbox behavioral profiling for process: {executable_function.__name__}")
+        
+        start_time = time.time()
+        result = executable_function(*args, **kwargs)
+        elapsed_time = time.time() - start_time
+
+        logging.info(f"Process finalized execution phase. Total runtime: {elapsed_time:.4f} seconds.")
+
+        # Flag the application if it attempts an extended sleep pattern to hide its true behavior
+        if elapsed_time > self.maximum_allowed_sleep:
+            logging.critical(
+                f"EVASION DETECTION ALERT: Process execution delayed by {elapsed_time:.2f}s. "
+                f"Exceeds maximum profile baseline of {self.maximum_allowed_sleep}s. Potential dormancy backdoor active."
+            )
+        else:
+            logging.info("[SUCCESS] Process execution pattern fits standard operational baselines.")
+            
+        return result
+
+# --- Sample Application Test Paths ---
+def standard_initialization():
+    """Simulates a legitimate application establishing configuration paths normally."""
+    time.sleep(0.5) 
+    return "Application Online"
+
+def evasive_initialization():
+    """Simulates malware attempting a lengthy delay loop to tire out sandbox scanners."""
+    # In a real environment, this might be a multi-day or multi-week loop check
+    time.sleep(12.0) 
+    return "Malicious Backdoor Active"
+
+if __name__ == "__main__":
+    sandbox_guard = DormancyAnalysisGuard(maximum_allowed_sleep=5.0)
+
+    # 1. Test clean system execution
+    sandbox_guard.profile_execution_delay(standard_initialization)
+    
+    print("\n------------------------------------------------------------\n")
+    
+    # 2. Test evasive program execution
+    sandbox_guard.profile_execution_delay(evasive_initialization)
