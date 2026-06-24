@@ -1,0 +1,48 @@
+global:
+  resolve_timeout: 5m
+  slack_api_url: 'https://slack.com' # Replace with actual webhook
+
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'slack-default'
+  routes:
+    # 🚨 Route 1: Direct hotfix/build crashes cleanly into Slack developers channel
+    - match_re:
+        severity: warning|critical
+        service: blocklang-compiler
+      receiver: 'slack-hotfix-alerts'
+      continue: true
+
+    # 🛑 Route 2: Escalate catastrophic network/ledger collapses instantly to PagerDuty
+    - match:
+        severity: critical
+        infrastructure: gochain-ledger
+      receiver: 'pagerduty-oncall'
+
+receivers:
+- name: 'slack-default'
+  slack_configs:
+  - channel: '#pipeline-logs'
+    text: "📋 Pipeline alert event: {{ .CommonAnnotations.summary }}"
+
+- name: 'slack-hotfix-alerts'
+  slack_configs:
+  - channel: '#hotfix-alerts'
+    send_resolved: true
+    title: "⚡ *Hotfix Pipeline Exception Triggered*"
+    text: >-
+      *Alert:* {{ .CommonLabels.alertname }}
+      *Severity:* `{{ .CommonLabels.severity }}`
+      *Summary:* {{ .CommonAnnotations.summary }}
+      *Description:* {{ .CommonAnnotations.description }}
+
+- name: 'pagerduty-oncall'
+  pagerduty_configs:
+  - service_key: 'SEC_INTEGRATION_KEY_PAGERDUTY_TOKEN' # Replace with target Events API V2 key
+    send_resolved: true
+    severity: '{{ .CommonLabels.severity }}'
+    client: 'Prometheus Alertmanager'
+    description: "🔥 CRITICAL: GoChain Ledger Outage Detected! Commit: {{ .CommonLabels.commit_sha }}. Summary: {{ .CommonAnnotations.summary }}"
