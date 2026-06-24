@@ -1,0 +1,44 @@
+import os
+import json
+import logging
+from src.crypto import CryptoStorageManager
+from src.transport import KermitTransportLayer
+from src.monitors import AdvancedThreatMonitors
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - [%(levelname)s] - %(message)s')
+
+def mock_process_task():
+    logging.info("Executing main system build operations...")
+
+def main():
+    # Load central configuration file
+    config_path = os.path.join("config", "config.json")
+    with open(config_path, "r") as f:
+        config = json.load(f)
+
+    logging.info("--- Launching Secure Kermit & Supply Chain Defense Core ---")
+    
+    # Initialize Core Classes
+    monitors = AdvancedThreatMonitors(config)
+    crypto = CryptoStorageManager(config)
+    transport = KermitTransportLayer(config)
+
+    # 1. Evaluate Sandbox and Process Defenses
+    monitors.run_canary_audit()
+    monitors.profile_dormancy_evasion(mock_process_task)
+
+    # Setup demo live workspace if empty
+    src_dir = config["storage"]["source_dir"]
+    os.makedirs(src_dir, exist_ok=True)
+    with open(os.path.join(src_dir, "app_payload.bin"), "w") as f:
+        f.write("Production Data Core State")
+
+    # 2. Package and Cryptographically Sign active workspace
+    archive, signature = crypto.generate_signed_backup()
+    
+    # 3. Transform Data into Checksum-Validated Kermit Frames
+    packet_stream = transport.generate_packets(archive)
+    logging.info(f"Pipeline complete. Generated {len(packet_stream)} packets ready for secure routing.")
+
+if __name__ == "__main__":
+    main()
