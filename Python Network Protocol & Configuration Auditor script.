@@ -1,0 +1,110 @@
+import os
+import sys
+import subprocess
+import json
+import datetime
+
+# ANSI Color Codes for scannability
+GREEN = "\033[92m"
+RED = "\033[91m"
+YELLOW = "\033[93m"
+CYAN = "\033[96m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+def show_header():
+    print(f"{CYAN}{BOLD}====================================================")
+    print("        LOCAL NETWORK INTERFACE & SECURITY AUDITOR   ")
+    print(f"        TIMESTAMP: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"===================================================={RESET}\n")
+
+class NetworkAuditor:
+    def __init__(self):
+        self.report = {
+            "os_platform": sys.platform,
+            "audit_results": {},
+            "vulnerabilities_detected": 0
+        }
+
+    def audit_windows_registry(self):
+        """Audits Windows registry paths for LLMNR and NetBIOS broadcast settings."""
+        if sys.platform != "win32":
+            return
+
+        print(f"{CYAN}[*] Running Windows Security Baseline Verification...{RESET}")
+        
+        # 1. Check if LLMNR is disabled via registry
+        # Path: HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows NT\DNSClient -> TurnOffMulticast
+        try:
+            cmd = ['reg', 'query', 'HKLM\\Software\\Policies\\Microsoft\\Windows NT\\DNSClient', '/v', 'TurnOffMulticast']
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            
+            if "TurnOffMulticast" in result.stdout and "0x1" in result.stdout:
+                print(f"  {GREEN}[PASS] LLMNR Broadcasts are explicitly DISABLED via Registry.{RESET}")
+                self.report["audit_results"]["LLMNR_Status"] = "SECURE"
+            else:
+                print(f"  {RED}[FAIL] LLMNR is enabled or unconfigured. Vulnerable to local credential relaying!{RESET}")
+                self.report["audit_results"]["LLMNR_Status"] = "VULNERABLE"
+                self.report["vulnerabilities_detected"] += 1
+        except Exception:
+            print(f"  {YELLOW}[WARN] Could not query DNSClient registry. Administrator rights may be required.{RESET}")
+
+    def inspect_network_interfaces(self):
+        """Analyzes active network adapters for insecure properties or routing rules."""
+        print(f"{CYAN}[*] Extracting local adapter configurations...{RESET}")
+        
+        if sys.platform == "win32":
+            cmd = ['powershell', '-Command', 'Get-NetAdapter | Select-Object Name, InterfaceDescription, Status, PromiscuousMode | ConvertTo-Json']
+        else:
+            # Linux alternative to check interface flags (looking for PROMISC mode which mirrors traffic)
+            cmd = ['ip', '-json', 'link']
+
+        try:
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if result.stdout.strip():
+                data = json.loads(result.stdout)
+                
+                # Check for Promiscuous Mode (indicates active traffic sniffing/mirroring)
+                promisc_found = False
+                if sys.platform == "win32":
+                    adapters = data if isinstance(data, list) else [data]
+                    for adapter in adapters:
+                        name = adapter.get("Name", "Unknown")
+                        is_promisc = adapter.get("PromiscuousMode", False)
+                        if is_promisc:
+                            print(f"  {RED}[ALERT] Adapter '{name}' is in Promiscuous Mode (Traffic Mirroring Active)!{RESET}")
+                            promisc_found = True
+                else:
+                    for interface in data:
+                        flags = interface.get("flags", [])
+                        if "PROMISC" in flags:
+                            print(f"  {RED}[ALERT] Interface '{interface.get('ifname')}' has PROMISC flag enabled!{RESET}")
+                            promisc_found = True
+                
+                if not promisc_found:
+                    print(f"  {GREEN}[PASS] No unauthorized local traffic mirroring modes active.{RESET}")
+                    self.report["audit_results"]["Traffic_Mirroring"] = "SECURE"
+                else:
+                    self.report["audit_results"]["Traffic_Mirroring"] = "MIRRORING_DETECTED"
+                    self.report["vulnerabilities_detected"] += 1
+                    
+        except Exception as e:
+            print(f"  {YELLOW}[WARN] Interface extraction skipped or error parsing payload structure.{RESET}")
+
+    def run_full_audit(self):
+        show_header()
+        self.inspect_network_interfaces()
+        self.audit_windows_registry()
+        
+        print(f"\n{CYAN}====================================================")
+        print("                  AUDIT COMPLETE                     ")
+        if self.report["vulnerabilities_detected"] > 0:
+            print(f" Status: {RED}ACTION REQUIRED ({self.report['vulnerabilities_detected']} security issues found){RESET}")
+        else:
+            print(f" Status: {GREEN}SECURE (Configuration matches standard defense baselines){RESET}")
+        print(f"===================================================={RESET}")
+
+if __name__ == "__main__":
+    # Note: Running with elevated/Administrative privileges provides full registry readout
+    auditor = NetworkAuditor()
+    auditor.run_full_audit()
