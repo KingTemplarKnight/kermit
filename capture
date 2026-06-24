@@ -1,0 +1,80 @@
+import sys
+import time
+import random
+import datetime
+
+# ANSI Color Codes for Scannability
+GREEN = "\033[92m"
+RED = "\033[91m"
+YELLOW = "\033[93m"
+CYAN = "\033[96m"
+WHITE = "\033[97m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+def display_ctf_banner():
+    print(f"{CYAN}{BOLD}====================================================")
+    print("        LEGAL CTF DEFENSE & EMAIL AUDIT ENGINE      ")
+    print(f"        ACTIVE SIMULATION RUNTIME: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"===================================================={RESET}\n")
+
+class CTFEmailPlatform:
+    def __init__(self):
+        self.analyzed_count = 0
+        self.flags_captured = 0
+        self.false_positives = 0
+        
+        # Simulated inbox data stream feeding into the CTF environment
+        self.inbound_pool = [
+            {"sender": "hr@internal-corp.net", "subject": "Quarterly Benefits Update", "body": "Please review the updated policy documentation inside your portal.", "has_flag": False},
+            {"sender": "attacker@external-domain.org", "subject": "URGENT: Verify Bank Access Now", "body": "Your access token is leaking! Download this attachment to claim your CTF{m4ss_3m41l_d3f3ns3_01} validation key.", "has_flag": True},
+            {"sender": "support@github-security.com", "subject": "Security Alert: New SSH Key Added", "body": "An unrecognized key was added to your profile repository layout.", "has_flag": False},
+            {"sender": "spoofed-admin@local-swamp.io", "subject": "System Patch Instructions", "body": "Run this macro immediately to update kernel structures. Verification flag string: CTF{k3rm1t_sh13ld_v4l1d4t3}.", "has_flag": True},
+            {"sender": "newsletter@techbriefs.com", "subject": "Weekly Tech Digest", "body": "Top 10 trends in distributed cross-platform development patterns.", "has_flag": False}
+        ]
+
+    def process_inbox_stream(self):
+        display_ctf_banner()
+        print(f"{ORANGE}[!] Launching local CTF Email Parsing Challenge...{RESET}")
+        print(f"{ORANGE}[!] Analyzing simulated traffic for hidden CTF Flag signatures...{RESET}\n")
+        time.sleep(1.0)
+
+        while True:
+            try:
+                self.analyzed_count += 1
+                email = random.choice(self.inbound_pool)
+                
+                print(f"{WHITE}[Email #{self.analyzed_count}] Incoming message from: {email['sender']}{RESET}")
+                print(f"  Subject: {email['subject']}")
+                time.sleep(0.8)
+
+                # Simulated EDR/Gateway rule logic looking for CTF format strings
+                if "ctf{" in email["body"].lower():
+                    print(f"  {RED}[ALERT] Malicious Phishing Indicator Found!{RESET}")
+                    
+                    # Extract the flag slice out of the body text
+                    start_idx = email["body"].lower().find("ctf{")
+                    end_idx = email["body"].lower().find("}", start_idx) + 1
+                    extracted_flag = email["body"][start_idx:end_idx]
+                    
+                    print(f"  {GREEN}[+] FLAG CAPTURED SUCCESSFULLY: {BOLD}{extracted_flag}{RESET}")
+                    self.flags_captured += 1
+                    sys.stdout.write("\a") # Sound alert bell
+                    sys.stdout.flush()
+                else:
+                    print(f"  {GREEN}[PASS] Message cleared by security gateway rules.{RESET}")
+                
+                print(f"{CYAN}[~] Telemetry Metrics: {self.analyzed_count} Parsed | {self.flags_captured} Flags Contained.{RESET}\n")
+                time.sleep(1.5)
+
+            except KeyboardInterrupt:
+                print(f"\n\n{RED}[!] SIMULATION SUSPENDED: Compiling CTF score...{RESET}")
+                print(f"{WHITE}  Total Emails Evaluated: {self.analyzed_count}{RESET}")
+                print(f"{GREEN}  Total CTF Flags Captured and Secured: {self.flags_captured}{RESET}")
+                break
+
+if __name__ == "__main__":
+    # Ensure ANSI color codes initialize natively if running on standard console layouts
+    ORANGE = "\033[38;5;208m"
+    engine = CTFEmailPlatform()
+    engine.process_inbox_stream()
