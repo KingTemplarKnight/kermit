@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  zerocool-api-core:
+    build: .
+    container_name: zerocool_api_container
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      # Binds local target file into the app container for seamless live editing
+      - ./target_ips.txt:/app/target_ips.txt
+    environment:
+      # Optional: Safe mechanism to inject your alphanumeric token securely
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/zero_cool_core?keyword=health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
