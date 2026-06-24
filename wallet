@@ -1,0 +1,40 @@
+import os
+import hashlib
+import ecdsa
+import base58
+
+def generate_bitcoin_wallet():
+    # Step 1: Generate a secure random 256-bit private key
+    private_key_bytes = os.urandom(32)
+    private_key_hex = private_key_bytes.hex()
+    
+    # Step 2: Derive the ECDSA public key (SECP256k1 curve used by Bitcoin)
+    sk = ecdsa.SigningKey.from_string(private_key_bytes, curve=ecdsa.SECP256k1)
+    vk = sk.get_verifying_key()
+    public_key_bytes = b'\x04' + vk.to_string() # Uncompressed prefix
+    
+    # Step 3: Apply SHA-256 then RIPEMD-160 to the public key
+    sha256_pk = hashlib.sha256(public_key_bytes).digest()
+    ripemd160 = hashlib.new('ripemd160')
+    ripemd160.update(sha256_pk)
+    hashed_pk = ripemd160.digest()
+    
+    # Step 4: Add mainnet network byte (0x00)
+    network_prefix = b'\x00' + hashed_pk
+    
+    # Step 5: Double SHA-256 for the checksum
+    checksum = hashlib.sha256(hashlib.sha256(network_prefix).digest()).digest()[:4]
+    
+    # Step 6: Concatenate network prefix and checksum, then encode to Base58
+    binary_address = network_prefix + checksum
+    bitcoin_address = base58.b58encode(binary_address).decode('utf-8')
+    
+    return private_key_hex, bitcoin_address
+
+if __name__ == "__main__":
+    priv_key, pub_address = generate_bitcoin_wallet()
+    
+    print("=== PERSONAL BITCOIN WALLET CREATED ===")
+    print(f"Public Address (Share this to receive funds): {pub_address}")
+    print(f"Private Key (NEVER SHARE THIS - Controls funds): {priv_key}")
+    print("========================================")
