@@ -1,0 +1,72 @@
+import os
+import shutil
+import tarfile
+import logging
+from datetime import datetime
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - [%(levelname)s] - %(message)s')
+
+class BackupRotator:
+    """Manages secure, timestamped archive rotation for project data."""
+    def __init__(self, source_dir: str, backup_dir: str, max_backups: int = 5):
+        self.source_dir = source_dir
+        self.backup_dir = backup_dir
+        self.max_backups = max_backups
+        
+        # Ensure the destination backup directory exists securely
+        os.makedirs(self.backup_dir, exist_ok=True)
+
+    def create_backup(self) -> str:
+        """Creates a compressed tarball archive of the source directory."""
+        if not os.path.exists(self.source_dir) or not os.listdir(self.source_dir):
+            logging.warning("Source directory is empty or missing. Backup aborted.")
+            return ""
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        archive_name = f"backup_{timestamp}.tar.gz"
+        archive_path = os.path.join(self.backup_dir, archive_name)
+
+        try:
+            with tarfile.open(archive_path, "w:gz") as tar:
+                tar.add(self.source_dir, arcname=os.path.basename(self.source_dir))
+            logging.info(f"Successfully generated archive: {archive_path}")
+            return archive_path
+        except IOError as e:
+            logging.error(f"Archive generation failed: {e}")
+            return ""
+
+    def rotate_backups(self):
+        """Purges the oldest backups if the total count exceeds max_backups."""
+        try:
+            # Gather all matching backup files ordered by creation time
+            all_backups = [
+                os.path.join(self.backup_dir, f) 
+                for f in os.listdir(self.backup_dir) 
+                if f.startswith("backup_") and f.endswith(".tar.gz")
+            ]
+            all_backups.sort(key=os.path.getctime)
+
+            # Enforce retention cap
+            while len(all_backups) > self.max_backups:
+                oldest_backup = all_backups.pop(0)
+                os.remove(oldest_backup)
+                logging.info(f"Enforced retention policy: Removed old backup '{oldest_backup}'")
+        except OSError as e:
+            logging.error(f"Error executing backup rotation cleanup: {e}")
+
+    def execute_pipeline(self):
+        """Runs the generation and structural rotation consecutively."""
+        if self.create_backup():
+            self.rotate_backups()
+
+if __name__ == "__main__":
+    # Local simulation setup
+    SRC = "./project_live_data"
+    BKP = "./secure_backup_vault"
+    
+    os.makedirs(SRC, exist_ok=True)
+    with open(os.path.join(SRC, "baseline.dat"), "w") as f:
+        f.write("Critical Configuration State Data")
+
+    pipeline = BackupRotator(source_dir=SRC, backup_dir=BKP, max_backups=3)
+    pipeline.execute_pipeline()
