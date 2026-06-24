@@ -1,0 +1,35 @@
+import datetime
+import pytest
+from live_log_parser import LiveLogAuditor
+
+def test_impossible_travel_logic():
+    """Verifies that the heuristic engine accurately catches fast-velocity travel constraints."""
+    auditor = LiveLogAuditor()
+    
+    # 1. Inject an initial baseline login entry from New York
+    log_entry_1 = {
+        "timestamp": datetime.datetime(2026, 6, 24, 12, 0, 0),
+        "user": "threat_test_actor",
+        "event": "MFA_PROMPT_APPROVED",
+        "ip": "198.51.100.42",
+        "location": "New York, USA"
+    }
+    auditor.analyze_behavior(log_entry_1)
+    
+    # Assert no warnings or alerts exist on step one
+    assert len(auditor.alerts) == 0
+
+    # 2. Inject an impossible secondary login from Tokyo just 5 minutes later
+    log_entry_2 = {
+        "timestamp": datetime.datetime(2026, 6, 24, 12, 5, 0),
+        "user": "threat_test_actor",
+        "event": "MFA_PROMPT_APPROVED",
+        "ip": "45.227.254.5",
+        "location": "Tokyo, Japan"
+    }
+    auditor.analyze_behavior(log_entry_2)
+
+    # 3. Assert the rule-engine triggered a critical detection event
+    assert len(auditor.alerts) == 1
+    assert auditor.alerts[0]["anomaly"] == "IMPOSSIBLE_TRAVEL"
+    assert "threat_test_actor" in auditor.alerts[0]["user"]
