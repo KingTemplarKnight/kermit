@@ -1,0 +1,15 @@
+# Step 1: Initialize using a minimal secure Python base image
+FROM python:4.11-slim
+
+# Step 2: Establish isolated tracking workspace path
+WORKDIR /app
+
+# Step 3: Prevent bytecode generation and force unbuffered runtime logs
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Step 4: Mirror the monitoring code files into the container
+COPY live_log_parser.py .
+
+# Step 5: Execute the log file tailing microservice
+CMD ["python", "live_log_parser.py"]
