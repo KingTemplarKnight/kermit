@@ -1,0 +1,35 @@
+import json
+import logging
+import sys
+from datetime import datetime, timezone
+
+class JSONThreatFormatter(logging.Formatter):
+    """Formats Python logs into clean, single-line JSON records for Grafana Loki ingestion."""
+    
+    def format(self, record: logging.LogRecord) -> str:
+        log_payload = {
+            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "level": record.levelname,
+            "module": record.module,
+            "message": record.getMessage(),
+        }
+        
+        # If the log is a critical alert, append metadata fields for SIEM dashboards
+        if record.levelno >= logging.WARNING:
+            log_payload["security_alert"] = True
+            log_payload["threat_vector"] = getattr(record, "vector", "supply_chain_anomaly")
+            
+        return json.dumps(log_payload)
+
+def setup_structured_logging():
+    """Overrides the default logging stream with the structured JSON formatter."""
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    
+    # Clean out any pre-existing text handlers
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+        
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(JSONThreatFormatter())
+    root_logger.addHandler(stream_handler)
