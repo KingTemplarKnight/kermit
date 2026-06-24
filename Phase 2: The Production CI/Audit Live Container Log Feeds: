@@ -1,0 +1,1 @@
+docker logs -f zero_cool_identity_monitor
