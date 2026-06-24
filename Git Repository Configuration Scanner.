@@ -1,0 +1,57 @@
+import os
+import configparser
+
+def scan_git_repositories(base_directory):
+    """Walks through directories to find local git repos and extract user identity data."""
+    print("====================================================")
+    print("        STARTING LOCAL GIT REPOSITORY SCAN          ")
+    print(f" Target Directory: {os.path.abspath(base_directory)}")
+    print("====================================================\n")
+    
+    repo_count = 0
+    identities_found = set()
+
+    for root, dirs, files in os.walk(base_directory):
+        # Look for the hidden .git directory
+        if '.git' in dirs:
+            git_config_path = os.path.join(root, '.git', 'config')
+            
+            if os.path.exists(git_config_path):
+                repo_count += 1
+                try:
+                    # Parse the standard INI-style git config file
+                    config = configparser.ConfigParser(strict=False, allow_no_value=True)
+                    config.read(git_config_path)
+                    
+                    # Check if the [user] section exists in the git config
+                    if 'user' in config.sections():
+                        name = config['user'].get('name', 'Not Found')
+                        email = config['user'].get('email', 'Not Found')
+                        
+                        identity_tuple = (name, email)
+                        
+                        # Print the information if it's a unique identity we haven't logged yet
+                        if identity_tuple not in identities_found:
+                            identities_found.add(identity_tuple)
+                            print(f"[+] UNIQUE IDENTITY FOUND IN REPO: {os.path.basename(root)}")
+                            print(f"    Directory Path: {root}")
+                            print(f"    Configured Name:  {name}")
+                            print(f"    Configured Email: {email}")
+                            print("-" * 50)
+                            
+                except Exception as e:
+                    # Skip files that are corrupted or unreadable
+                    continue
+                    
+    print("====================================================")
+    print("                  SCAN COMPLETE                     ")
+    print(f" Total Git Repositories Checked: {repo_count}")
+    print(f" Total Unique Identities Recovered: {len(identities_found)}")
+    print("====================================================")
+
+if __name__ == "__main__":
+    # Specify the directory you want to scan. 
+    # Use "." for the current folder, or put a full path like "C:\\Users\\YourName\\Projects"
+    search_path = "." 
+    
+    scan_git_repositories(search_path)
