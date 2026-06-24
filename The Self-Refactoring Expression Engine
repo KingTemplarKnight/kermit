@@ -1,0 +1,139 @@
+import sys
+import time
+import random
+import datetime
+import json
+
+# ANSI Color Codes for enhanced scannability
+ORANGE = "\033[38;5;208m"
+GREEN = "\033[92m"
+RED = "\033[91m"
+CYAN = "\033[96m"
+WHITE = "\033[97m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+def display_refactor_banner():
+    print(f"{ORANGE}{BOLD}====================================================")
+    print("        RECURSIVE AUTOMATED REFACTORING ENGINE      ")
+    print(f"        SYSTEM STATE: SYMBOLIC STRATEGY ACTIVE      ")
+    print(f"===================================================={RESET}\n")
+
+class FormulaDesigner:
+    def __init__(self, target_value=42.0, pool_size=15):
+        self.target_value = target_value
+        self.pool_size = pool_size
+        self.generation = 0
+        self.log_filename = "evolution_telemetry.json"
+        
+        # Operational components allowed within our design sandbox
+        self.allowed_operators = ['+', '-', '*', '/']
+        
+        # Seed initial generation with random structures: [Value, Operator, Value]
+        self.population = []
+        for _ in range(self.pool_size):
+            self.population.append([
+                str(random.randint(1, 100)),
+                random.choice(self.allowed_operators),
+                str(random.randint(1, 100))
+            ])
+            
+        with open(self.log_filename, "w") as f:
+            f.write("") # Reset local log archive
+
+    def evaluate_expression(self, formula_tokens):
+        """Assembles tokens into an equation and executes it within a secure math framework."""
+        expression_string = " ".join(formula_tokens)
+        try:
+            # Evaluate the software-defined string expression safely
+            result = eval(expression_string)
+            return float(result), expression_string
+        except ZeroDivisionError:
+            return 0.0, expression_string
+
+    def measure_fitness(self, formula_tokens):
+        """Calculates accuracy based on distance from the objective target value."""
+        result, _ = self.evaluate_expression(formula_tokens)
+        distance = abs(self.target_value - result)
+        # Higher score means closer to target; a distance of 0 yields a max score of 1000
+        if distance == 0:
+            return 1000.0
+        return 1.0 / (distance + 0.001)
+
+    def cross_pollinate(self, parent1, parent2):
+        """Slices structural elements from two configurations to create a hybrid program."""
+        child = [parent1[0], parent2[1], parent1[2]]
+        return child
+
+    def apply_stochastic_mutation(self, formula_tokens):
+        """Randomly alters elements within the formula to force unique engineering discoverability."""
+        if random.random() < 0.25:
+            # Mutate the left operand, the operator, or the right operand
+            mutation_choice = random.randint(0, 2)
+            if mutation_choice == 0:
+                formula_tokens[0] = str(random.randint(1, 100))
+            elif mutation_choice == 1:
+                formula_tokens[1] = random.choice(self.allowed_operators)
+            else:
+                formula_tokens[2] = str(random.randint(1, 100))
+        return formula_tokens
+
+    def execute_lifecycle(self):
+        display_refactor_banner()
+        print(f"{CYAN}[*] Defining Target Performance Objective: Find an equation that equals {self.target_value}{RESET}\n")
+        time.sleep(1.0)
+        
+        while True:
+            try:
+                self.generation += 1
+                
+                # Grade the entire population of scripts
+                scored_pool = [(self.measure_fitness(ind), ind) for ind in self.population]
+                scored_pool.sort(key=lambda x: x[0], reverse=True)
+                
+                best_score, best_formula = scored_pool[0]
+                actual_value, expr_str = self.evaluate_expression(best_formula)
+                
+                # Render a visual status bar indicating current accuracy convergence
+                meter_fill = min(int(best_score / 10), 15)
+                meter_visual = "█" * meter_fill + "░" * (15 - meter_fill)
+                
+                print(f"{WHITE}[Gen {self.generation}]{RESET} Progress: [{meter_visual}] | Formula: {CYAN}{expr_str}{RESET} = {GREEN}{actual_value}{RESET}")
+                
+                # Log telemetry event locally
+                log_entry = {"generation": self.generation, "expression": expr_str, "output": actual_value, "fitness": best_score}
+                with open(self.log_filename, "a") as f:
+                    f.write(json.dumps(log_entry) + "\n")
+
+                # Stopping condition: Perfect logical calculation match achieved
+                if actual_value == self.target_value:
+                    print(f"\n{GREEN}🚀 RECURSIVE DESIGN COMPLETION CONFIRMED!{RESET}")
+                    print(f"{GREEN}[+] Engineered Formula: {BOLD}{expr_str} = {actual_value}{RESET}")
+                    print(f"{GREEN}[+] Optimization metrics captured completely in '{self.log_filename}'{RESET}")
+                    sys.stdout.write("\a") # Activation flash sound
+                    sys.stdout.flush()
+                    break
+                
+                # Re-populate using elite logic selection and breeding matrices
+                survivors = [ind for score, ind in scored_pool[:5]]
+                next_generation = list(survivors)
+                
+                while len(next_generation) < self.pool_size:
+                    p1, p2 = random.choice(survivors), random.choice(survivors)
+                    child = self.cross_pollinate(p1, p2)
+                    child = self.apply_stochastic_mutation(child)
+                    next_generation.append(child)
+                    
+                self.population = next_generation
+                time.sleep(0.1) # Operational pause delay
+                
+            except KeyboardInterrupt:
+                print(f"\n\n{RED}[!] PIPELINE TERMINATED: Safely disconnected formula sandbox environment.{RESET}")
+                break
+
+if __name__ == "__main__":
+    # Define a complex target float or integer value the script must calculate dynamically
+    target_objective = 73.5
+    
+    designer = FormulaDesigner(target_value=target_objective)
+    designer.execute_lifecycle()
