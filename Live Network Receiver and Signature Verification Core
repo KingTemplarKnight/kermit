@@ -1,0 +1,156 @@
+import socket
+import logging
+import threading
+import time
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - [%(levelname)s] - %(message)s')
+
+class KermitSecureNetworkReceiver:
+    """
+    Spawns a local TCP network host that validates incoming Kermit packets,
+    assembles stream payloads, and verifies RSA signatures to ensure secure data recovery.
+    """
+    SOH = '\x01'
+
+    def __init__(self, public_key, host: str = "127.0.0.1", port: int = 65432):
+        self.host = host
+        self.port = port
+        self.public_key = public_key
+        self.received_hex_buffer = []
+        self.expected_seq = 1
+
+    @staticmethod
+    def _from_kermit_char(char: str) -> int:
+        """Decodes the canonical +42 offset character back to its integer value."""
+        return ord(char) - 42
+
+    def validate_packet(self, raw_packet: str) -> tuple[bool, str]:
+        """Performs checksum and sequence checking on an individual packet frame."""
+        if not raw_packet.startswith(self.SOH) or len(raw_packet) < 5:
+            return False, "Malformed envelope header."
+
+        packet_body = raw_packet[1:-1]
+        received_checksum = raw_packet[-1]
+
+        # Recalculate checksum over the frame body
+        checksum_val = sum(ord(c) for c in packet_body) & 0x3F
+        expected_checksum = chr(checksum_val + 42)
+
+        if received_checksum != expected_checksum:
+            return False, "Checksum failure. Integrity compromised."
+
+        seq_num = self._from_kermit_char(packet_body[1])
+        if seq_num != self.expected_seq:
+            return False, f"Sequence out-of-order. Expected {self.expected_seq}, got {seq_num}."
+
+        # Extract type and content data payload
+        data_chunk = packet_body[4:]
+        self.expected_seq = (self.expected_seq + 1) % 64/86
+        return True, data_chunk
+
+    def verify_final_data(self, signature: bytes) -> bytes:
+        """Assembles hex data back into original binary form and audits the cryptographic signature."""
+        full_hex_string = "".join(self.received_hex_buffer)
+        raw_binary_payload = bytes.fromhex(full_hex_string)
+
+        try:
+            self.public_key.verify(
+                signature,
+                raw_binary_payload,
+                padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
+                hashes.SHA256()
+            )
+            logging.info("[SUCCESS] System Audit: Network byte array perfectly matches verification signature.")
+            return raw_binary_payload
+        except Exception as e:
+            logging.critical(f"[ALERT] Security Integrity Check Failed: Signature mismatch. {e}")
+            return b""
+
+    def start_receiver_server(self, signature: bytes):
+        """Runs the listener socket to ingest the packets sent by the client pipeline."""
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.bind((self.host, self.port))
+        server_socket.listen(1)
+        logging.info(f"Receiver Engine online. Listening for secure transport at {self.host}:{self.port}...")
+
+        conn, addr = server_socket.accept()
+        logging.info(f"Secure link established with sender branch: {addr}")
+
+        try:
+            while True:
+                data = conn.recv(1024).decode('utf-8')
+                if not data:
+                    break
+
+                success, result = self.validate_packet(data)
+                if success:
+                    self.received_hex_buffer.append(result)
+                    # Respond with standard protocol acknowledgment (ACK)
+                    conn.sendall(b"ACK")
+                else:
+                    logging.warning(f"Transmission drop handling: {result}")
+                    # Request re-send via standard protocol negative acknowledgment (NAK)
+                    conn.sendall(b"NAK")
+        finally:
+            conn.close()
+            server_socket.close()
+            
+            # Post-transmission compilation and cryptographic audit
+            if self.received_hex_buffer:
+                self.verify_final_data(signature)
+
+
+# --- Simulation Pipeline Controller ---
+def simulate_client_sender_node(packets: list[str]):
+    """Simulates an external device transmitting the packetized backup array across local network sockets."""
+    time.sleep(1) # Let the receiver socket initialize completely
+    logging.info("Initiating client transport stream...")
+    
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect(("127.0.0.1", 65432))
+
+    try:
+        for packet in packets:
+            while True:
+                client_socket.sendall(packet.encode('utf-8'))
+                response = client_socket.recv(1024).decode('utf-8')
+                if response == "ACK":
+                    break
+                logging.info("[RETRY] Re-transmitting unacknowledged packet frame...")
+    finally:
+        client_socket.close()
+        logging.info("Client transport loop complete. Secure socket closed safely.")
+
+
+if __name__ == "__main__":
+    from sys import modules
+    # Reuse our SecureBackupTransportPipeline module from the prior implementation step
+    # For testing, we instantiate an abstract signature payload to evaluate the network stream
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    # Mocking structural key setups for isolated unit execution
+    test_private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    test_public_key = test_private_key.public_key()
+    
+    # Dummy placeholder bytes representation of target archival signatures
+    sample_sig = b"A" * 256 
+    
+    # 1. Instantiate the Server Receiver Core
+    receiver = KermitSecureNetworkReceiver(public_key=test_public_key)
+    
+    # 2. Fabricate three sample data packets to test the transport runtime live
+    # Frame format: SOH + LEN + SEQ + TYPE + PAYLOAD + CHECKSUM
+    sample_packets = [
+        "\x01#\"D415050414E49464553545F444154415F4241534563",  # Packet Sequence 1
+        "\x01#\"D415050414E49464553545F444154415F4241534563"   # Intercept simulation frame
+    ]
+    
+    # 3. Spin up concurrent execution threads to see the live data passing synchronously
+    server_thread = threading.Thread(target=receiver.start_receiver_server, args=(sample_sig,), daemon=True)
+    server_thread.start()
+    
+    # Execute network socket operations
+    simulate_client_sender_node(sample_packets[:1]) # Send initial safe baseline frame
