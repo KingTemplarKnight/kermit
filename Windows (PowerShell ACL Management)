@@ -1,0 +1,13 @@
+# Retrieve the existing access control list for the file
+$acl = Get-Acl "C:\project_live_data\baseline.dat"
+
+# Define a strict rule denying the "Everyone" group data-modification rights
+$rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+    "Everyone", 
+    "Write,Delete,Modify", 
+    "Deny"
+)
+
+# Append the rule and apply it back structurally to the target
+$acl.SetAccessRule($rule)
+Set-Acl "C:\project_live_data\baseline.dat" $acl
