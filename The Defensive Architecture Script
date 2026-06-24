@@ -1,0 +1,114 @@
+import sys
+import time
+import random
+import datetime
+
+# ANSI Color Codes for terminal UI visibility
+ORANGE = "\033[38;5;208m"
+GREEN = "\033[92m"
+RED = "\033[91m"
+CYAN = "\033[96m"
+WHITE = "\033[97m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+def security_mesh_avatar():
+    return f"""{ORANGE}{BOLD}
+    ====================================================================
+     _....._        [ PROTOCOL: KERMIT SEGMENTATION INTERFACE v4.0 ]
+   .'       '.      [ FILTER CORE: BLACKVEIL PACKET ANALYZER ARRAYS]
+  /  X   X    \\     [ NETWORK MESH: LARKVEIL ENCRYPTED QUARANTINE ]
+
+ |   (o) (o)   |    🐸 KERMIT CENTRAL SECURITY MESH ACTIVE 🐸
+ |     _._     |    
+  \\   '---'   /     "Deploying BlackVeil filters. Routing to LarkVeil."
+   '._______.'      
+    ===================================================================={RESET}"""
+
+class BlackVeilFilter:
+    """Simulates a Layer-7 packet analyzer inspecting network traffic patterns."""
+    def __init__(self):
+        self.analyzed_packets = 0
+        self.flagged_relays = 0
+
+    def inspect_traffic(self, packet_payload):
+        self.analyzed_packets += 1
+        # Simulate detection logic looking for unaligned credential reflection hashes
+        if "relay_payload" in packet_payload.lower() or "anonymous_bind" in packet_payload.lower():
+            self.flagged_relays += 1
+            return "MALICIOUS"
+        return "CLEAN"
+
+class LarkVeilSegment:
+    """Simulates an isolated, encrypted network perimeter for critical endpoints."""
+    def __init__(self):
+        self.quarantined_hosts = []
+        self.active_tunnels = 0
+
+    def isolate_host(self, host_identifier):
+        if host_identifier not in self.quarantined_hosts:
+            self.quarantined_hosts.append(host_identifier)
+            self.active_tunnels += 1
+            return True
+        return False
+
+class KermitSecurityMesh:
+    def __init__(self):
+        self.blackveil = BlackVeilFilter()
+        self.larkveil = LarkVeilSegment()
+        self.cycle_count = 0
+
+    def run_telemetry_loop(self):
+        print(security_mesh_avatar())
+        print(f"{CYAN}[*] Booting BlackVeil inspect pipelines...{RESET}")
+        print(f"{CYAN}[*] Initializing isolated LarkVeil network segment mappings...{RESET}")
+        time.sleep(1.0)
+        
+        # Simulated stream of incoming network events hitting the enterprise architecture
+        mock_network_stream = [
+            {"source": "Workstation_01", "payload": "Standard HTTP GET /index.html"},
+            {"source": "Legacy_Directory_Server", "payload": "SMBv1_anonymous_bind_attempt"},
+            {"source": "External_Gateway", "payload": "Encrypted TLS v1.3 Handshake"},
+            {"source": "Database_Node_B", "payload": "Credential_relay_payload_signature"},
+            {"source": "Workstation_44", "payload": "DNS Query lookup to internal.local"}
+        ]
+
+        print(f"\n{GREEN}[+] Systems synchronized. Monitoring traffic streams via BlackVeil filtering engine:{RESET}\n")
+        
+        while True:
+            try:
+                self.cycle_count += 1
+                event = random.choice(mock_network_stream)
+                
+                print(f"{WHITE}[Cycle {self.cycle_count}] Processing packet from {event['source']}...{RESET}")
+                time.sleep(0.8)
+
+                # Route the incoming event payload through the BlackVeil filter array
+                verdict = self.blackveil.inspect_traffic(event["payload"])
+
+                if verdict == "MALICIOUS":
+                    print(f"  {RED}[ALERT] BlackVeil intercepted anomalous payload signature from {event['source']}!{RESET}")
+                    print(f"  {RED}  Signature Flagged: {event['payload']}{RESET}")
+                    time.sleep(0.4)
+                    
+                    # Execute an automated quarantine sequence, dropping the asset into LarkVeil
+                    success = self.larkveil.isolate_host(event["source"])
+                    if success:
+                        print(f"  {ORANGE}[ACTION] Kermit successfully routed {event['source']} to isolated LarkVeil VLAN.{RESET}")
+                        print(f"  {ORANGE}  LarkVeil State: {len(self.larkveil.quarantined_hosts)} host(s) contained.{RESET}")
+                        sys.stdout.write("\a") # Sound system chime indicator
+                        sys.stdout.flush()
+                else:
+                    print(f"  {GREEN}[PASS] BlackVeil clearance verified. Packet forwarded safely.{RESET}")
+                
+                print(f"{ORANGE}[~] Active Network Analytics: {self.blackveil.analyzed_packets} inspected | {self.blackveil.flagged_relays} mitigated.{RESET}\n")
+                time.sleep(1.5)
+
+            except KeyboardInterrupt:
+                print(f"\n\n{RED}[!] MONITORING SUSPENDED: Flushing active BlackVeil filters.{RESET}")
+                print(f"{ORANGE}[!] Final State: {len(self.larkveil.quarantined_hosts)} hosts remain locked in LarkVeil perimeter.{RESET}")
+                break
+
+if __name__ == "__main__":
+    mesh = KermitSecurityMesh()
+    mesh.run_telemetry_loop()
