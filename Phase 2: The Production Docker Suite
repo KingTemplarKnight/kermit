@@ -1,0 +1,16 @@
+# Step 1: Use an official lightweight Python base image
+FROM python:3.11-slim
+
+# Step 2: Establish the execution directory inside the container
+WORKDIR /app
+
+# Step 3: Prevent Python from writing .pyc files and force unbuffered streaming
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Step 4: Copy application dependencies and scripts into the image workspace
+COPY distributed_stream_service.py .
+COPY summarize_data.py .
+
+# Step 5: Start the background streaming pipeline
+CMD ["python", "distributed_stream_service.py"]
