@@ -1,0 +1,117 @@
+import sys
+import time
+import random
+import datetime
+
+# ANSI Color Codes for scannability
+ORANGE = "\033[38;5;208m"
+GREEN = "\033[92m"
+RED = "\033[91m"
+CYAN = "\033[96m"
+WHITE = "\033[97m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+def display_design_banner():
+    print(f"{CYAN}{BOLD}====================================================")
+    print("      RECURSIVE SELF-INTELLIGENT DESIGN ENGINE      ")
+    print(f"      MUTATION STATE: GENETIC ALGORITHM ACTIVE     ")
+    print(f"===================================================={RESET}\n")
+
+class GeneticDesignEngine:
+    def __init__(self, target_pattern, population_size=20, mutation_rate=0.1):
+        self.target_pattern = target_pattern  # The optimal "design goal" array
+        self.population_size = population_size
+        self.mutation_rate = mutation_rate
+        self.gene_length = len(target_pattern)
+        self.generation = 0
+        
+        # Initialize a random starter population of scripts/arrays (values between 0-9)
+        self.population = [
+            [random.randint(0, 9) for _ in range(self.gene_length)] 
+            for _ in range(self.population_size)
+        ]
+
+    def calculate_fitness(self, individual):
+        """Measures how close the current script logic is to the design target."""
+        score = 0
+        for i in range(self.gene_length):
+            if individual[i] == self.target_pattern[i]:
+                score += 1
+        return score
+
+    def crossover(self, parent1, parent2):
+        """Breeds two successful pieces of logic together to form new code."""
+        split_point = random.randint(1, self.gene_length - 1)
+        child = parent1[:split_point] + parent2[split_point:]
+        return child
+
+    def mutate(self, individual):
+        """Introduces a random change into the code string to discover new paths."""
+        for i in range(self.gene_length):
+            if random.random() < self.mutation_rate:
+                individual[i] = random.randint(0, 9)
+        return individual
+
+    def evolve_generation(self):
+        self.generation += 1
+        
+        # 1. Evaluate all current scripts based on performance metrics
+        scored_population = [
+            (self.calculate_fitness(ind), ind) for ind in self.population
+        ]
+        # Sort descending: Best performing logic floats to the top
+        scored_population.sort(key=lambda x: x[0], reverse=True)
+        
+        best_fitness, best_individual = scored_population[0]
+        
+        print(f"{WHITE}[Generation {self.generation}]{RESET} Best Script Logic Fitness: {GREEN}{best_fitness}/{self.gene_length}{RESET}")
+        print(f"  Current Logic State: {ORANGE}{best_individual}{RESET}")
+        
+        # Check if perfect alignment has been reached
+        if best_fitness == self.gene_length:
+            return best_individual
+
+        # 2. Selection: Retain the top 20% strongest code strings (Elite Selection)
+        new_population = [ind for score, ind in scored_population[:int(self.population_size * 0.2)]]
+
+        # 3. Replenish the population via crossover breeding and mutations
+        while len(new_population) < self.population_size:
+            # Pick parents from the upper half of performers
+            p1 = random.choice(scored_population[:self.population_size // 2])[1]
+            p2 = random.choice(scored_population[:self.population_size // 2])[1]
+            
+            child = self.crossover(p1, p2)
+            child = self.mutate(child)
+            new_population.append(child)
+
+        self.population = new_population
+        return None
+
+    def run_evolution_loop(self):
+        display_design_banner()
+        print(f"{CYAN}[*] Target Operational Design Goal Matrix Set to:{RESET}")
+        print(f"    {WHITE}{self.target_pattern}{RESET}\n")
+        time.sleep(1.0)
+        
+        while True:
+            try:
+                perfect_script = self.evolve_generation()
+                if perfect_script:
+                    print(f"\n{GREEN}🚀 SUCCESS: SELF-INTELLIGENT RECURSION COMPLETE!{RESET}")
+                    print(f"{GREEN}[+] Perfect software-defined design matrix evolved in {self.generation} generations.{RESET}")
+                    print(f"{GREEN}[+] Final Optimized Logic Array: {BOLD}{perfect_script}{RESET}")
+                    sys.stdout.write("\a") # Alert chime
+                    sys.stdout.flush()
+                    break
+                time.sleep(0.08) # Execution delay loop
+            except KeyboardInterrupt:
+                print(f"\n\n{RED}[!] RECURSION HALTED: Saving intermediate logic arrays before exit.{RESET}")
+                break
+
+if __name__ == "__main__":
+    # Define an explicit target array that the code must learn to build perfectly on its own
+    design_target = [7, 7, 7, 1, 2, 3, 9, 8, 4, 5, 0, 6, 2, 1, 9]
+    
+    engine = GeneticDesignEngine(target_pattern=design_target)
+    engine.run_evolution_loop()
