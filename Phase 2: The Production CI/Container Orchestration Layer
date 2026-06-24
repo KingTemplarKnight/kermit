@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  identity-log-auditor:
+    build: .
+    container_name: zero_cool_identity_monitor
+    restart: unless-stopped
+    volumes:
+      # Volume binding maps the current folder into the container workspace natively
+      - .:/app
