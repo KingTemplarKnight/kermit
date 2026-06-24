@@ -1,0 +1,2 @@
+echo "2026-06-24 16:15:00 | test_user | MFA_PROMPT_APPROVED | 8.8.8.8 | USA" >> auth_stream.log
+echo "2026-06-24 16:16:30 | test_user | MFA_PROMPT_APPROVED | 1.1.1.1 | Australia" >> auth_stream.log
