@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  identity-log-auditor:
+    build: .
+    container_name: zero_cool_identity_monitor
+    restart: unless-stopped
+    volumes:
+      - .:/app
+
+  security-ops-dashboard:
+    image: python:3.11-slim
+    container_name: zero_cool_ops_dashboard
+    restart: unless-stopped
+    command: python /app/ops_dashboard.py
+    ports:
+      - "8080:8080" # Maps local port 8080 to container interface port 8080
+    volumes:
+      - .:/app
+    depends_on:
+      - identity-log-auditor # Guarantees auditing container starts first
