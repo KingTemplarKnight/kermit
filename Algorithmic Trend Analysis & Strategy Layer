@@ -1,0 +1,33 @@
+import logging
+
+class TradingStrategyEvaluator:
+    """Evaluates trailing data feeds to automate market entry and exit decisions."""
+    
+    def __init__(self, target_profit_margin: float = 0.05):
+        self.price_history = {"OIL_BRENT": [], "TECH_INDEX": []}
+        self.window_limit = 5
+
+    def record_market_tick(self, market_data: dict):
+        """Appends streaming values to trailing buffer blocks."""
+        for asset, price in market_data.items():
+            if asset in self.price_history:
+                self.price_history[asset].append(price)
+                if len(self.price_history[asset]) > self.window_limit:
+                    self.price_history[asset].pop(0)
+
+    def evaluate_moving_average_trend(self, asset: str) -> str:
+        """Analyzes momentum crossovers to output clear buy, sell, or hold actions."""
+        history = self.price_history.get(asset, [])
+        if len(history) < 3:
+            return "HOLD"  # Collect more data history prior to establishing triggers
+
+        current_price = history[-1]
+        previous_average = sum(history[:-1]) / len(history[:-1])
+
+        # Simple momentum logic: buy if trending upward, sell if drop trends begin
+        if current_price < (previous_average * 0.98):
+            return "BUY"
+        elif current_price > (previous_average * 1.02):
+            return "SELL"
+            
+        return "HOLD"
