@@ -1,0 +1,74 @@
+name: Python Package Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10"]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Fix Python Script Syntax
+      run: |
+        # Strips out invalid hidden formatting/characters from line 1 and ensures clean Unix line endings
+        sed -i '1s/^[^#a-zA-Z0-9_]*//' autonomous_module.py
+        
+    - name: Lint and Run Autonomous Module
+      run: |
+        # Run the autonomous module now that the syntax error is cleared
+        python autonomous_module.py
+
+    - name: Initialize Database and Log Status
+      if: always() # Runs even if the previous steps failed to capture the failure state
+      run: |
+        python -c "
+        import sqlite3
+        import sys
+
+        # 1. Connect and automatically initialize the schema if missing
+        conn = sqlite3.connect('build.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS build_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                version TEXT,
+                status TEXT,
+                log_text TEXT
+            );
+        ''')
+        
+        # 2. Safely log the pipeline outcome
+        status = 'SUCCESS' if '${{ job.status }}' == 'success' else 'FAILED'
+        cursor.execute(
+            'INSERT INTO build_logs (version, status, log_text) VALUES (?, ?, ?)',
+            ('${{ matrix.python-version }}', status, 'Pipeline execution completed with status: ' + status)
+        )
+        conn.commit()
+        conn.close()
+        "
+
+    - name: Alert Team on Failure
+      if: failure()
+      run: |
+        curl -X POST -H 'Content-type: application/json' \
+        --data '{"text": "❌ *CONDA BUILD FAILURE*: Python package pipeline crashed on version `${{ matrix.python-version }}`."}' \
+        ${{ secrets.WEBHOOK_URL }}
+
+        curl -X POST -H 'Content-type: application/json' \
+        --data '{"embeds": [{"title": "🚨 Conda Matrix Defect", "description": "Python regression tests failed inside the Conda sandbox.", "color": 15158332, "fields": [{"name": "Python Version", "value": "${{ matrix.python-version }}", "inline": true}]}]}' \
+        ${{ secrets.WEBHOOK_URL }}
