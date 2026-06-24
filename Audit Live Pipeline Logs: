@@ -1,0 +1,1 @@
+docker logs -f live_stream_ingest_container
